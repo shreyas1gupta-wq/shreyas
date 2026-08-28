@@ -1,0 +1,230 @@
+# Canonical cycle registry — owned by Layer 01 (docs/model/01-cycle-taxonomy.md)
+# Every cycle-producing layer (L02-L14) MUST have its cycle_id registered here.
+# Validated in CI against config/cycle_registry.schema.json.
+#
+# VALIDATOR RULES
+#   R1  phase_repr: circular  requires  n_obs.effective >= 4
+#   R3  evidence_tier: C      requires  one_sided: true
+#   R4  sum of tier-C L1 allocation influence <= 150 bps (both books)
+#   R6  data_tier: D5         requires  status: cut  OR  proxy_of set
+#   R7  risk engine (L18) is unbudgeted and may cut exposure without limit
+#   +   DAG acyclicity; 3-sigma budget test; turnover test; source_url reachable
+#
+# SIGN CONVENTION: +1 ALWAYS means "phase historically favourable to risk assets".
+# NEUTRAL POLICY PORTFOLIO: equity 60 / gold 12 / debt 28, gross 1.00x.
+
+meta:
+  version: 0.1.0
+  last_reviewed: 2026-08-28
+  neutral_portfolio: {equity_pct: 60, gold_pct: 12, debt_pct: 28, gross_x: 1.00}
+  buckets:
+    B0: {name: secular,       tau_half_months: [96, null], rebalance: annual_review_quarterly_step}
+    B1: {name: generational,  tau_half_months: [48, 96],   rebalance: quarterly}
+    B2: {name: credit_capex,  tau_half_months: [24, 60],   rebalance: quarterly_monthly}
+    B3: {name: business,      tau_half_months: [9, 30],    rebalance: monthly}
+    B4: {name: intermediate,  tau_half_months: [3, 12],    rebalance: weekly_agg_monthly_mod}
+    B5: {name: fast,          tau_half_months: [null, 3],  rebalance: weekly_aggressive_only}
+  bucket_budgets_pp:
+    # [down, up] percentage points of NAV; sector/name are L1
+    agg:
+      B0: {equity: [5,0],  gold: [3,14], debt: [8,10], sector_L1: 4,  name_L1: 0,  lev: [-0.25, 0.00], turnover_pp_yr: 2.5}
+      B1: {equity: [5,5],  gold: [2,8],  debt: [6,6],  sector_L1: 5,  name_L1: 0,  lev: [-0.10, 0.00], turnover_pp_yr: 3.0}
+      B2: {equity: [10,8], gold: [2,4],  debt: [8,10], sector_L1: 8,  name_L1: 0,  lev: [-0.20, 0.10], turnover_pp_yr: 8.0}
+      B3: {equity: [12,12],gold: [2,6],  debt: [10,10],sector_L1: 12, name_L1: 6,  lev: [-0.15, 0.15], turnover_pp_yr: 15.7}
+      B4: {equity: [8,8],  gold: [1.5,4],debt: [6,6],  sector_L1: 10, name_L1: 25, lev: [-0.10, 0.10], turnover_pp_yr: 18.1}
+      B5: {equity: [4,4],  gold: [1,2],  debt: [3,3],  sector_L1: 5,  name_L1: 40, lev: [-0.05, 0.05], turnover_pp_yr: 18.1}
+    mod:
+      B0: {equity: [5,0],  gold: [3,14], debt: [8,10], sector_L1: 3, name_L1: 0,  lev: [-0.25, 0.00], turnover_pp_yr: 2.5}
+      B1: {equity: [4,4],  gold: [2,8],  debt: [5,5],  sector_L1: 4, name_L1: 0,  lev: [-0.10, 0.00], turnover_pp_yr: 2.4}
+      B2: {equity: [8,7],  gold: [2,4],  debt: [7,8],  sector_L1: 6, name_L1: 0,  lev: [-0.20, 0.05], turnover_pp_yr: 6.4}
+      B3: {equity: [9,9],  gold: [2,5],  debt: [8,8],  sector_L1: 8, name_L1: 3,  lev: [-0.15, 0.10], turnover_pp_yr: 11.8}
+      B4: {equity: [4,4],  gold: [1,3],  debt: [3,3],  sector_L1: 5, name_L1: 10, lev: [-0.10, 0.05], turnover_pp_yr: 9.1}
+      B5: {equity: [0,0],  gold: [0,0],  debt: [0,0],  sector_L1: 0, name_L1: 0,  lev: [0,0],         turnover_pp_yr: 0}
+  arbitration:
+    additive: true
+    slow_bound_scaling: {trigger_abs_s: 0.70, factor: "1 - 0.5*|s|", floor: 0.50, applies_to: [B4, B5], direction: upside_only}
+    disagreement_haircut: {formula: "net * (1 - 0.35*D)", D: "1 - |sum(c)| / sum(|c|)", min_rung_gap: 2}
+    no_trade_band_pp: {agg_asset: 1.0, mod_asset: 1.5, name: 0.5}
+    hard_vetoes: [L18_derisk, B0_leverage_ceiling, L15_liquidity]
+  orthogonalization:
+    order: tau_half_desc
+    shrinkage: {formula: "lambda = n_eff/(n_eff+60)", n_eff: "overlap_months / (0.5 * period_months of slower)"}
+    cap_scaling: "budget * sqrt(retained_variance)"
+    cluster_audit: {window_months: 60, linkage: average, distance: "sqrt(2(1-rho))", cut_rho: 0.50, cluster_cap: "1.40 * max(member budget)"}
+  phase:
+    sigma_c_formula: "clip(0.25 + 0.60/sqrt(n_eff) + 0.40*(1 - r2_fit), 0.25, 2.20)"
+    attenuation: "R = exp(-sigma_c^2 / 2)"
+    trigger_slide_bounds:
+      cumulative_abs_dtau: "<= 0.25 * period over rolling 2 periods"
+      refractory: "0.40 * period per event class"
+      application: "1m lag, amortised linearly over min(6m, period/20)"
+      decay: "20%/yr after 5 years"
+      sigma_inflation_rad: [0.20, 0.60]
+
+cycles:
+
+  - id: monetary_order_debasement
+    bucket: B0
+    tau_half_months: 120
+    phase_repr: ordinal
+    claimed_period_years: [60, 90]
+    parent_id: null
+    family: long_wave
+    mechanism: "Sovereign debt accumulates until service crowds out fiscal space; resolved by negative real rates, monetisation, or reset."
+    n_obs: {timeseries: 2, cross_sectional: 8, effective: 2.0}
+    evidence_tier: C
+    evidence_note: "Mechanism is tier B (Reinhart & Sbrancia 2011, ~35 country-years of repression). The CLOCK is tier C: n=2-3 successions."
+    data_tier: D1
+    indicators:
+      - {code: GDS,  definition: "0.6*(G4 govt debt/GDP) + 0.4*(US net interest/revenue)", source_name: "IMF WEO GGXWDG_NGDP + CBO", source_url: "https://www.imf.org/en/Publications/WEO", freq: A, history_start: 1980, pit_status: lag_approx, lag_days: 180}
+      - {code: RPR,  definition: "GDP-weighted G4 real policy rate", source_name: "BIS policy rates + FRED/OECD CPI", source_url: "https://data.bis.org/", freq: M, history_start: 1960, pit_status: true, lag_days: 30}
+      - {code: CBGS, definition: "z(official gold/reserves) + z(trailing 4q CB net purchases)", source_name: "WGC Goldhub + IMF IFS", source_url: "https://www.gold.org/goldhub", freq: Q, history_start: 1948, pit_status: true, lag_days: 60}
+    phase_state: {stage_posterior: {P3: 0.35, P4: 0.55, P5: 0.10}, tau_years: 6.0, sigma_c_rad: null, asof: 2026-08-28}
+    gain: {target: gold_weight, k_pp_per_unit: 5.5, mapping_fn: linear}
+    influence:
+      agg: {equity_pp: [5,0], gold_pp: [3,14], debt_pp: [8,10], sector_L1_pp: 4, name_L1_pp: 0, leverage_x: [-0.25, 0.00]}
+      mod: {equity_pp: [5,0], gold_pp: [3,14], debt_pp: [8,10], sector_L1_pp: 3, name_L1_pp: 0, leverage_x: [-0.25, 0.00]}
+    one_sided: true
+    rate_limit: {max_delta_pp_per_month: 0.083, min_traverse_months: 36}
+    owner_layer: L02
+    mvp: true
+    status: active
+
+  - id: india_credit_financial_cycle
+    bucket: B2
+    tau_half_months: 48
+    phase_repr: state
+    claimed_period_years: [8, 16]
+    period_dispersion_cv: 0.35
+    parent_id: null
+    family: credit
+    mechanism: "Bank credit growth raises collateral values, which relaxes constraints and raises credit further; unwinds through capital impairment."
+    n_obs: {timeseries: 2, cross_sectional: 17, effective: 2.4}
+    evidence_tier: B
+    evidence_note: "n(XS)=17 via the BIS panel rescues this from tier C. Drehmann, Borio & Tsatsaronis (2012): financial cycle ~16y vs business cycle 1-8y; BIS credit-gap ~10pp distress threshold."
+    data_tier: D1
+    indicators:
+      - {code: CGAP, definition: "credit-to-GDP gap, one-sided HP lambda=400000", source_name: "BIS CREDIT_GAPS India", source_url: "https://data.bis.org/topics/CREDIT_GAPS", freq: Q, history_start: 1951, pit_status: true, lag_days: 150}
+      - {code: DBCG, definition: "SCB non-food credit YoY minus nominal GDP YoY", source_name: "RBI DBIE + MOSPI", source_url: "https://dbie.rbi.org.in", freq: M, history_start: 1972, pit_status: lag_approx, lag_days: 45}
+      - {code: GNPA, definition: "system GNPA ratio, 4q change", source_name: "RBI Financial Stability Report", source_url: "https://rbi.org.in", freq: SA, history_start: 1997, pit_status: true, lag_days: 90}
+    hysteresis: {enter_z: 0.75, exit_z: 0.45, min_dwell_months: 8, smooth_window_months: 16}
+    gain: {target: equity_weight, k_pp_per_unit: -1.50, mapping_fn: linear}
+    influence:
+      agg: {equity_pp: [10,8], gold_pp: [2,4], debt_pp: [8,10], sector_L1_pp: 8, name_L1_pp: 0, leverage_x: [-0.20, 0.10]}
+      mod: {equity_pp: [8,7],  gold_pp: [2,4], debt_pp: [7,8],  sector_L1_pp: 6, name_L1_pp: 0, leverage_x: [-0.20, 0.05]}
+    one_sided: false
+    rate_limit: {max_delta_pp_per_month: 0.104, min_traverse_months: 96}
+    owner_layer: L03
+    mvp: true
+    status: active
+
+  - id: india_business_cycle
+    bucket: B3
+    tau_half_months: 18
+    phase_repr: state          # FAILS R1 (n_eff=3): nowcast, not a clock
+    claimed_period_years: [4.5, 6.0]
+    period_dispersion_cv: 0.30
+    parent_id: null
+    family: business
+    mechanism: "Inventory, fixed investment and external demand co-move; amplified post-1991 by financial globalisation and private investment decisions."
+    n_obs: {timeseries: 3, cross_sectional: 17, effective: 3.0}
+    evidence_tier: B
+    evidence_note: "Pandey, Patnaik & Shah (2017) IGDR 10(1). Recessions 1999Q4-2003Q1, 2007Q2-2009Q3, 2011Q2-2012Q4; mean expansion 12q, recession 9q. n_eff=3 => R1 fails => state."
+    data_tier: D1
+    indicators:
+      - {code: IIP, definition: "IIP SA, CF-filtered cyclical component", source_name: MOSPI, source_url: "https://mospi.gov.in", freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
+      - {code: GVA, definition: "real GVA YoY, seasonally adjusted", source_name: "MOSPI National Accounts", source_url: "https://mospi.gov.in", freq: Q, history_start: 1996, pit_status: lag_approx, lag_days: 60}
+      - {code: GST, definition: "gross GST collections, 3m/12m ratio", source_name: "GST Council", source_url: "https://gstcouncil.gov.in", freq: M, history_start: 2017, pit_status: true, lag_days: 3}
+      - {code: EWB, definition: "e-way bill volume YoY", source_name: "NIC/GSTN", source_url: "https://ewaybillgst.gov.in", freq: M, history_start: 2018, pit_status: true, lag_days: 10}
+    hysteresis: {enter_z: 0.75, exit_z: 0.45, min_dwell_months: 4, smooth_window_months: 6}
+    gain: {target: equity_weight, k_pp_per_unit: 2.20, mapping_fn: linear}
+    influence:
+      agg: {equity_pp: [12,12], gold_pp: [2,6], debt_pp: [10,10], sector_L1_pp: 12, name_L1_pp: 6, leverage_x: [-0.15, 0.15]}
+      mod: {equity_pp: [9,9],   gold_pp: [2,5], debt_pp: [8,8],   sector_L1_pp: 8,  name_L1_pp: 3, leverage_x: [-0.15, 0.10]}
+    one_sided: false
+    rate_limit: {max_delta_pp_per_month: 0.667, min_traverse_months: 36}
+    owner_layer: L04
+    mvp: true
+    status: active
+
+  - id: kitchin_inventory
+    bucket: B3
+    tau_half_months: 11
+    phase_repr: circular       # PASSES R1 (n_eff=7)
+    claimed_period_years: [3.0, 5.0]
+    period_dispersion_cv: 0.25
+    parent_id: india_business_cycle
+    family: business
+    mechanism: "Production over- and under-shoots demand because inventory decisions use lagged information; the correction is the cycle."
+    n_obs: {timeseries: 7, cross_sectional: 20, effective: 7.0}
+    evidence_tier: B
+    data_tier: D1
+    indicators:
+      - {code: IIPQ, definition: "IIP manufacturing vs 24m trend, CF-filtered", source_name: MOSPI, source_url: "https://mospi.gov.in", freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
+      - {code: PMII, definition: "India Mfg PMI, stocks-of-purchases sub-index", source_name: "S&P Global (headline free)", source_url: "https://www.pmi.spglobal.com", freq: M, history_start: 2005, pit_status: true, lag_days: 1}
+      - {code: INVS, definition: "aggregate inventory/sales, listed non-financial universe", source_name: "NSE/BSE filings (own archive)", source_url: "https://www.nseindia.com", freq: Q, history_start: 2001, pit_status: reconstructed, lag_days: 55}
+    phase_state: {mu_rad: null, sigma_c_rad: 0.76, attenuation_R: 0.751, asof: null}
+    gain: {target: cyclical_sector_tilt, k_pp_per_unit: 4.0, mapping_fn: cos, peak_phase_rad: 1.05}
+    influence:
+      agg: {equity_pp: [4,4], gold_pp: [0,0], debt_pp: [3,3], sector_L1_pp: 6, name_L1_pp: 3,   leverage_x: [0,0]}
+      mod: {equity_pp: [3,3], gold_pp: [0,0], debt_pp: [2,2], sector_L1_pp: 4, name_L1_pp: 1.5, leverage_x: [0,0]}
+    orthogonalization: {beta_prior: 0.55, retained_variance: 0.45}
+    one_sided: false
+    rate_limit: {max_delta_pp_per_month: 0.364, min_traverse_months: 22}
+    owner_layer: L04
+    mvp: true
+    status: active
+
+  - id: intermediate_momentum_12_1
+    bucket: B4
+    tau_half_months: 6
+    phase_repr: state
+    claimed_period_years: null
+    parent_id: null
+    family: price_persistence
+    mechanism: "Slow diffusion of information plus flow-driven continuation; decays and crashes after sharp market reversals."
+    n_obs: {timeseries: 30, cross_sectional: 40, effective: 30.0}
+    evidence_tier: A
+    evidence_note: "Jegadeesh & Titman (1993). India: Agarwalla, Jacob & Varma (2013) publish a free WML series, but it is BUILT FROM CMIE PROWESS - use as external validation benchmark only, NEVER as a model input."
+    data_tier: D1/D4
+    indicators:
+      - {code: R12_1, definition: "cumulative return t-12m to t-1m, skip 1m, corporate-action adjusted", source_name: "NSE/BSE bhavcopy archive (own build)", source_url: "https://www.nseindia.com/all-reports", freq: D, history_start: 1994, pit_status: reconstructed, lag_days: 0}
+      - {code: WMLX,  definition: "IIM-A WML factor, validation reference only", source_name: "IIMA IFFM", source_url: "https://faculty.iima.ac.in/iffm/Indian-Fama-French-Momentum/", freq: D, history_start: 1993, pit_status: true, lag_days: 30}
+    hysteresis: {enter_z: 0.50, exit_z: 0.25, min_dwell_months: 1, smooth_window_months: 2}
+    influence:
+      agg: {equity_pp: [8,8], gold_pp: [1.5,4], debt_pp: [6,6], sector_L1_pp: 10, name_L1_pp: 25, leverage_x: [-0.10, 0.10]}
+      mod: {equity_pp: [4,4], gold_pp: [1,3],   debt_pp: [3,3], sector_L1_pp: 5,  name_L1_pp: 10, leverage_x: [-0.10, 0.05]}
+    one_sided: false
+    rate_limit: {max_delta_pp_per_month: 1.333, min_traverse_months: 12}
+    owner_layer: L08
+    mvp: true
+    status: active
+
+  # ---- CUT ENTRIES: kept as stubs so they are not silently re-proposed ----
+
+  - id: real_estate_long_cycle_18y
+    bucket: B1
+    status: cut
+    data_tier: D5
+    evidence_tier: C
+    n_obs: {timeseries: 1, cross_sectional: 3, effective: 1.0}
+    cut_reason: "No free long Indian series. NHB Residex from 2007, RBI HPI from 2010 => ~1 observation. NOT proxied: housing credit growth already enters india_credit_financial_cycle, so a separate 18y clock would be pure narrative with zero incremental data."
+    owner_layer: null
+    mvp: false
+
+  - id: earnings_revision_cycle
+    bucket: B3
+    status: cut
+    data_tier: D5
+    cut_reason: "I/B/E/S-style analyst estimates and revisions do not exist free for India."
+    replacement: realised_eps_breadth
+    replacement_note: "fraction of investable universe whose trailing-4q EPS exceeds the value 4 quarters earlier, from scraped exchange results; D2, lag 45-60d, tier B->C per R6. Loses ALL forward content."
+    owner_layer: L11
+    mvp: false
+
+  - id: expiry_microstructure
+    bucket: B5
+    status: cut
+    cut_reason: "wrong_layer - feasible (D1) but has no business setting allocation. Moved to execution (L15)."
+    owner_layer: L15
+    mvp: false

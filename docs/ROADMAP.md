@@ -138,57 +138,158 @@ which is the only honest way to know whether the AI/human layer adds anything.
 
 ## 3. The cycle ladder
 
-The full ladder, with the authority each level gets. Tiers and influence caps come from
-`01-CYCLE-THEORY.md §5`; data feasibility assumes free sources only.
+> **Superseded and rebuilt.** An earlier draft of this section ordered cycles by claimed
+> period — a 200-year cycle, a 10-year cycle, a 3-month cycle. Layer 01's analysis
+> (`docs/model/01-cycle-taxonomy.md`) shows that model does not survive contact with the
+> record, and the ladder below replaces it. The change is fundamental enough to state
+> plainly rather than quietly edit.
 
-| Horizon | Cycle | Mechanism | Tier | Obs. in India | Free data? | Max influence (agg / mod) |
-|---|---|---|---|---|---|---|
-| 150–250y | Reserve-currency / hegemonic debt arc | Debt accumulation → devaluation → monetary reorder | C | <1 | Partial (IMF COFER, WGC, BIS) | 3 pp / 2 pp |
-| 50–80y | Kondratiev long wave | Technology diffusion, long price waves | C | <1 | Yes (JST, Shiller) | 2 pp / 1 pp |
-| 30–50y | Sovereign debt / fiscal cycle | Debt-to-GDP accumulation and repression | C | ~0.5 | Yes (IMF, RBI) | 3 pp / 2 pp |
-| 16–25y | **Financial cycle (credit + property)** | Minsky; leverage build and deleveraging | **B** | ~1.5 | **Yes (BIS gap, RBI HPI)** | **8 pp / 6 pp** |
-| 15–25y | Commodity supercycle | Capex underinvestment → shortage → glut | B | ~1 | Yes (World Bank Pink Sheet) | 4 pp / 3 pp |
-| 15–20y | Demographic / financialisation arc | Savings migration, physical → financial | B | ~1 | Yes (RBI, MOSPI) | 3 pp / 3 pp |
-| 7–11y | **Credit cycle** | Juglar + Minsky; the anchor signal | **B/A** | ~3 | **Yes (RBI, BIS)** | **10 pp / 8 pp** |
-| 7–11y | Capex / investment cycle | Capacity added in lumps, then digested | B | ~3 | Yes (OBICUS, GFCF) | 6 pp / 5 pp |
-| 5–10y | Dollar / DXY cycle | Global liquidity and EM transmission | B | ~2.5 | Yes (FRED) | 5 pp / 4 pp |
-| 3–7y | **Macro regime (growth × inflation)** | Policy and demand cycle | **A** | ~6 | **Yes (MOSPI, RBI)** | **12 pp / 9 pp** |
-| 3–7y | Valuation mean reversion | Multiple compression / expansion | B | ~4 | Yes (NSE, MOSPI) | 10 pp / 8 pp |
-| 3–5y | Kitchin / inventory | Order–delivery lag overshooting | B | ~7 | Yes (IIP, filings) | 4 pp / 3 pp |
-| 2–5y | Earnings / margin cycle | Margin mean reversion | B | ~5 | Yes (filings) | 6 pp / 5 pp |
-| 1–3y | Flows and supply | FII/DII/SIP, IPO supply | B | ~8 | Yes (NSDL, AMFI, SEBI) | 8 pp / 5 pp |
-| 1–3y | Small-vs-large cap cycle | Risk appetite, liquidity | B | ~8 | Yes (NSE indices) | 8 pp / 5 pp |
-| 6m–2y | Sector rotation | Cycle-conditional sector leadership | B | ~12 | Yes (NSE sector indices) | 10 pp / 8 pp |
-| 3–12m | **Cross-sectional momentum** | Underreaction, flows | **A** | ~25 | **Yes (bhavcopy)** | **15 pp / 8 pp** |
-| 3–12m | Time-series trend | Trend persistence | A | ~25 | Yes (bhavcopy) | 10 pp / 6 pp |
-| 1–3m | Earnings drift (PEAD) | Underreaction to results | A | ~100 | Yes (filings) | 6 pp / 3 pp |
-| 1–4w | Short-term reversal | Liquidity provision | A | ~300 | Yes (bhavcopy) | 4 pp / 1 pp |
-| event | Special situations / IPO base | Corporate action, supply dynamics | B | varies | Yes (exchange filings) | 8 pp / 4 pp |
+### 3.0 Persistence, not periodicity
 
-Read the pattern down the "obs." column. **Authority tracks evidence.** The 3-month momentum
-signal gets more allocation power than the 200-year debt cycle, not because it matters more in
-the world, but because we can actually know where we are in it.
+Three claims get routinely conflated, and they carry wildly different evidence:
 
-### 3.1 The influence budget must add up
+| Claim | Example | Estimable in India? |
+|---|---|---|
+| A **force** exists and moves prices | Credit expansion inflates collateral, which inflates credit | **Yes** — mechanism-level, cross-country |
+| The force has a characteristic **persistence** | Credit conditions have a multi-year autocorrelation half-life | **Yes** — a half-life needs many overlapping windows, not many cycles |
+| The force is **periodic and can be phased** | "We are 70% through an 18-year land cycle" | **Almost never** — needs ≥4 observed periods |
 
-If every signal screamed maximum in the same direction simultaneously, the sum of the
-aggressive column above is ~145 pp — far beyond any sane allocation. Three mechanisms bound it:
+The third claim is the one cycle investing usually dies on. So the registry enforces a
+**clock test (R1)**: a cycle may claim a circular, phaseable representation only with at
+least four complete observed periods in a regime comparable to today's. Of 32 candidate
+cycles, **only five survive as actual clocks, and three of those are calendar-anchored.**
+Everything else is a *state variable* — a level with a persistence, not a position on a dial.
 
-1. **Family compositing.** Correlated cycles are grouped into families (credit family: credit
-   cycle + capex + financial cycle + earnings; each family emits ONE composite). This collapses
-   ~22 signals into ~8 independent inputs.
-2. **Orthogonalisation by horizon.** Slowest first; each faster signal is residualised against
-   the slower composites already in the stack, so a fast signal only earns influence for the
-   part of it that is genuinely new information.
-3. **A hard projection step.** After aggregation, the proposed weights are projected onto the
-   feasible set defined by the frozen caps (equity, gold ≤50%, debt ≤70%, gross ≤1.5x, sector
-   ≤25%, name ≤6% entry / 10% drift). The projection is the last word.
+The ladder is therefore ordered by **`tau_half`, the half-life of the signal's own
+autocorrelation, in months.** That is estimable from overlapping windows even with zero
+complete cycles, and it is what actually determines the three things the portfolio cares
+about: how hard to smooth, how fast the position may move, and how much turnover the
+signal generates.
 
-The arithmetic must be demonstrated, not asserted — a property test in the suite asserts that
-for any signal vector in [−1, +1]^n, the output satisfies every frozen constraint. That test is
-written in Phase 6 and is a gate.
+### 3.1 The six buckets
 
----
+| Bucket | Name | `tau_half` | Claimed periods | Role | Rebalance clock |
+|---|---|---|---|---|---|
+| **B0** | Secular / long wave | ≥ 96 m | 50–250 y | Strategic centre of gravity; floors, ceilings, insurance policy | Annual review, quarterly step |
+| **B1** | Generational / structural | 48–96 m | 15–50 y | Slow drift of the centre; commodity and valuation anchors | Quarterly |
+| **B2** | Credit and capex | 24–60 m | 7–16 y | Gross-risk envelope; sector capex tilts; leverage ceiling | Quarterly / monthly |
+| **B3** | Business, earnings, policy | 9–30 m | 2.5–7 y | **The workhorse.** Equity/gold/debt split, sector rotation, cash calls | Monthly |
+| **B4** | Intermediate tactical | 3–12 m | 3–18 m | Bounded deviation; name selection; flow and vol overlay | Weekly (agg) / monthly (mod) |
+| **B5** | Fast | ≤ 3 m | 1 w – 3 m | **Aggressive book only.** Name-level reversal, event drift | Weekly |
+
+The machine-readable register lives in `config/cycle_registry.yaml`: **32 candidates → 17
+active/MVP, 12 deferred, 3 cut with recorded reasons.** `src/cyclestack/registry.py`
+enforces every rule below in CI, so the budgets cannot silently drift.
+
+### 3.2 Authority tracks evidence, not importance
+
+Two orthogonal tiers govern how much money a cycle may move.
+
+**Evidence tier**, assigned on independent observations *of the effect*, not rows of data:
+
+| Tier | Test | Parameters | Multiplier | Authority |
+|---|---|---|---|---|
+| **A** | ≥30 independent observations, cross-sectionally replicated | May be **fitted**, with purged/embargoed CV | ×1.00 | Two-sided |
+| **B** | 4–30 observations, or n<4 with ≥10 cross-country analogues | Set from literature, then **frozen in git** | ×0.60 | Two-sided |
+| **C** | <4 observations, no cross-sectional replication | Frozen, two-signature change control | ×0.30 | **One-sided** |
+
+**Rule R3** is the sharpest edge here: tier-C (narrative) cycles may *only reduce risk* —
+raise gold or cash, buy hedges, lower the leverage ceiling, tighten a cap. They may never
+raise equity or leverage. The asymmetry is deliberate: a wrong narrative that de-risks
+costs carry; a wrong narrative that adds risk costs the mandate.
+
+**Rule R4** caps *all* tier-C cycles combined at **150 bps of NAV**. Ten narrative cycles
+screaming in unison move the book less than one tier-A signal at half strength.
+
+**Data tier**, because free-sources-only is a design constraint rather than an
+implementation detail: D1 free/long/true-PIT · D2 free/lag-approximated · D3 free but
+short · D4 reconstructable with our own engineering · D5 infeasible free. **Rule R6**: a
+D5 cycle is cut, or carries a named proxy with an automatic one-tier evidence downgrade.
+
+### 3.3 What this costs the long cycles — the headline consequence
+
+Applying R4 to the design produced the single most important result so far, and it is one
+neither the owner's brief nor my first draft anticipated:
+
+> **The 200-year currency/debt cycle can move the book by at most 1.5 percentage points.**
+
+Layer 02 designed roughly 10pp of gold authority for the debasement arc. R4 caps all
+tier-C cycles at 150bps combined, and it is the only active tier-C entry, so it gets the
+whole allowance and no more. Layer 01 binds over layer 02, per its own recommendation.
+
+The long-wave view therefore lives almost entirely in two places that are **not cycle
+influence at all**: the *structural gold insurance floor* (a standing mandate backstop)
+and the *tail-hedge policy*. That is the honest home for a two-observation claim — a
+permanent, cheap insurance position rather than a signal that moves weights around.
+
+It also means the layer the owner asked to build first is, correctly, among the least
+powerful things in the system. That is not a failure of the long-cycle work; it is the
+evidence tiering doing exactly its job.
+
+### 3.4 The influence budget, and that it actually adds up
+
+Every cycle contributes a signed deviation from the **neutral policy portfolio: equity
+60% · gold 12% · debt 28% · gross 1.00x · sector = benchmark.** That neutral point is set
+*by construction* and deliberately not derived from the debt sleeve's assumed 10%/4%-vol —
+letting a risk-free-looking 10% asset set the centre is an optimiser corner-solution into
+the 70% debt cap waiting to happen.
+
+Three mechanisms keep the sum bounded, and all three are tested rather than asserted:
+
+1. **Family compositing and a parent–child DAG** — correlated cycles (credit, capex, NPA,
+   profit share) collapse to one composite, so ten views of one force do not become ten bets.
+2. **Slowest-first orthogonalisation** — faster signals are residualised against slower
+   composites, earning influence only for what is genuinely new.
+3. **3σ aggregation, not linear summation.** Buckets are near-independent after (1) and
+   (2), so the worst case never occurs. The test is `3·√(0.33·Σb²) ≤ headroom to the cap`.
+
+Measured outcomes, from the validator:
+
+| | Aggressive (₹100 cr) | Moderate (₹1,000 cr) |
+|---|---|---|
+| 3σ equity de-risking authority | 33.3 pp (60% → ~27%) | **24.5 pp** (60% → ~35.5%) |
+| Allocation turnover generated | 49.3 pp/yr of a 65.4 pp budget | **32.1 pp/yr of a 32.2 pp budget** |
+| Leverage ceiling at 3σ | 1.50x → 0.65x-of-ceiling | tighter still |
+
+Two findings fell out of making this executable rather than tabular:
+
+- **Turnover was overstated 2×** until the formula was corrected. Allocation moves are
+  self-funding — raising gold 5pp by cutting equity 5pp is 5pp of one-way turnover, not
+  10 — so summing authority across asset classes double-counts the trade.
+- **The moderate book is at its turnover limit**, 32.1 of 32.2 pp. Getting there required
+  stripping nearly all fast-cycle authority from it, which leads directly to §3.5.
+
+### 3.5 The moderate book cannot run momentum
+
+Turnover cost per unit of authority scales as `√(12/tau_half)`. A 6-month-half-life signal
+costs ~1.13 pp of turnover per pp of allocation authority; the 48-month credit cycle costs
+~0.40 pp. Under a sub-100%/yr mandate you simply cannot afford the fast ones.
+
+So the ₹1,000 cr book is **not a dialled-down version of the ₹100 cr book.** It is a
+slow-cycle, valuation-and-credit book with a gold sleeve and a large-cap universe. That is
+a perfectly good product, but it is a *different* product, and the plan should stop
+describing the two as one engine with different parameters. One engine, yes — but two
+universes, two turnover regimes, and two genuinely different sources of return.
+
+### 3.6 The admission that shapes everything downstream
+
+Layer 01 states plainly what the cycle stack cannot do, and it must not be quietly
+designed around:
+
+> The 33.3 pp of de-risking authority is enough for a **slow** bear market — 2000–03,
+> 2008, 2011–13, the 2018–20 small-cap grind. It is **not** enough for March 2020: a 38%
+> index fall in five weeks with no cycle signal in the preceding quarter.
+
+That residual drawdown belongs to the options overlay and to fast volatility and funding
+triggers, which under **rule R7** sit with the risk engine and are *deliberately
+unbudgeted* — the risk engine may cut exposure without limit and at any cadence, while
+cycle signals are budgeted only for *adding* risk. A funding-stress trigger constrained by
+its bucket allowance would be useless in exactly the crash it exists for.
+
+The moderate book is weaker still here, with only 24.5 pp of cycle-driven de-risking. It
+must lean harder on gold, on the debt sleeve and on options — which raises its effective
+hedge budget and is a cost the plan should carry openly rather than discover later.
+
 
 ## 4. Build sequence — and why it is not "largest cycles first"
 
@@ -237,15 +338,22 @@ sequential; entries in *italic* are gates that must pass before the next phase b
 
 No code. The artefacts that everything else is built against.
 
-| Deliverable | Detail |
-|---|---|
-| `config/cycles.yaml` | The full cycle registry: every cycle with horizon, tier, indicators, free source, band widths, hysteresis, min dwell, max influence, slide triggers |
-| `config/signals.yaml` | Every signal, deduplicated across layers, with exact formula, inputs, source, feasibility, scoring, influence cap |
-| Interface contracts | `Signal`, `CycleModel`, `RegimeClassifier`, `Allocator`, `CostModel`, `ExecutionScheduler`, `RiskModel`, `Backtester`, `DataSource` — as real typed Python ABCs |
-| Influence budget arithmetic | The demonstration that maximum simultaneous influence lands inside the frozen caps |
-| Trial register | `research/register/` initialised. Nothing gets backtested before it is registered |
+| Deliverable | Status | Detail |
+|---|---|---|
+| `config/cycle_registry.yaml` | **done** | 32 cycles — 17 active/MVP, 12 deferred, 3 cut with reasons. Each with `tau_half`, bucket, evidence and data tier, indicators with free sources, bands, hysteresis, min dwell, rate limit, per-book influence caps, slide triggers |
+| `src/cyclestack/registry.py` | **done** | The validator. Enforces R1/R3/R4/R6/R7, per-bucket containment, 3σ aggregation, turnover, and DAG acyclicity. A registry that violates its own budget does not load |
+| `tests/test_registry.py` | **done** | 9 tests, all passing, including one that deliberately breaks the registry and asserts it refuses to load |
+| `config/signals.yaml` | outstanding | Every signal deduplicated across layers, with exact formula, inputs, source, feasibility, scoring, influence cap. Blocked on layers 09–20 |
+| Interface contracts | outstanding | `Signal`, `CycleModel`, `RegimeClassifier`, `Allocator`, `CostModel`, `ExecutionScheduler`, `RiskModel`, `Backtester`, `DataSource` as real typed Python ABCs |
+| Trial register | outstanding | `research/register/` initialised. Nothing gets backtested before it is registered |
 
-*Gate: the constraint arithmetic is demonstrated on paper and the interfaces compile.*
+*Gate: the constraint arithmetic is **demonstrated in code, not on paper** — the influence
+budget is a passing test, not a table someone checked once — and the interfaces compile.*
+
+**Phase A is roughly half done.** Making the budgets executable rather than tabular broke
+three things that looked fine on paper: the tier-C cap versus layer 02's gold authority
+(§3.3), the 2× turnover double-count (§3.4), and the moderate book's fast-cycle budget
+(§3.5). None would have been caught by reading the tables.
 
 ### Phase B — Skeleton (weeks 3–5)
 
@@ -427,13 +535,35 @@ ceiling breach; or a PBO above 0.5 on the final configuration.
 
 ---
 
-## 9. Immediate next steps
+## 9. Where this stands, and what is next
 
-1. **You:** confirm the target pair in §1.3, or tell me to build to 35–60% and accept the
-   drawdown consequence.
-2. **You:** confirm the build order in §4 (middle-out) or hold to largest-first.
-3. **Me:** Phase A — write `cycles.yaml`, `signals.yaml`, and the interface contracts.
-4. **Me:** Phase B code, written here against fixtures; the ingester runs on your machine.
+**Done.** The honest arithmetic (§1). The architecture (§2). The cycle ladder rebuilt on
+persistence rather than periodicity, with authority tied to evidence (§3). The build-order
+argument (§4). The phase plan (§5). Theory, econometric methods and bibliography in
+`docs/theory/`. Layer specs 01–08. The machine-readable cycle registry and its validator,
+with the influence budget passing as a test.
 
-Neither of your confirmations blocks Phase A. I will start on the registries and interfaces
-now, since those are needed under either answer.
+**Outstanding layer specs:** 09 factors · 10 sector model · 11 bottom-up · 12 special
+situations and IPOs · 13 gold · 14 optimiser · 15 execution and cost · 16 options ·
+17 risk/drawdown/cash-call · 18 the AI+human overlay · 19 free-data pipeline ·
+20 backtest and validation. Then the four adversarial critics and the synthesis.
+
+**Two decisions still open, neither blocking:**
+
+1. **The target pair (§1.3).** Build to 22–28% / 15–19% with the stretch case named, or
+   to your 35–60% and accept that the 30–35% drawdown ceiling becomes unreachable. Three
+   independent routes — my arithmetic, layer 01's influence budget, layer 02's
+   assessment — landed within a few points of each other and well below the aspiration.
+2. **The sector cap form.** A 25% *absolute* cap is a permanent forced underweight to
+   financials (~30–35% of the Nifty 500), which contradicts "fully sector-active". The
+   relative form `min(25%, benchmark + 10pp)` caps genuine concentration without imposing
+   a standing structural short. Recommended, but it is your call.
+
+**Two things the work has already changed about the plan**, worth restating because they
+alter what the product actually is:
+
+- The long-cycle layer you asked to build first is, correctly, among the least powerful
+  things in the system — capped at 150bps, and expressed through a structural gold floor
+  and tail hedges rather than through moving weights (§3.3).
+- The ₹1,000 cr book cannot run momentum under a sub-100% turnover mandate, so it is a
+  different product from the ₹100 cr book rather than a dialled-down one (§3.5).

@@ -1,230 +1,679 @@
-# Canonical cycle registry — owned by Layer 01 (docs/model/01-cycle-taxonomy.md)
-# Every cycle-producing layer (L02-L14) MUST have its cycle_id registered here.
-# Validated in CI against config/cycle_registry.schema.json.
+# ============================================================================
+# CANONICAL CYCLE REGISTRY
+# ----------------------------------------------------------------------------
+# Schema and rules: docs/model/01-cycle-taxonomy.md §10
+# Theory:           docs/theory/01-CYCLE-THEORY.md
+# Methods:          docs/theory/02-ECONOMETRIC-METHODS.md
+# Owner decisions:  docs/model/DECISIONS.md
 #
-# VALIDATOR RULES
-#   R1  phase_repr: circular  requires  n_obs.effective >= 4
-#   R3  evidence_tier: C      requires  one_sided: true
-#   R4  sum of tier-C L1 allocation influence <= 150 bps (both books)
-#   R6  data_tier: D5         requires  status: cut  OR  proxy_of set
-#   R7  risk engine (L18) is unbudgeted and may cut exposure without limit
-#   +   DAG acyclicity; 3-sigma budget test; turnover test; source_url reachable
+# THE LADDER KEY IS tau_half_months, NOT a claimed period. Cycles are ordered by
+# the half-life of their own autocorrelation, which is estimable from
+# overlapping windows even with zero complete observed cycles. Claimed periods
+# are descriptive only.
 #
-# SIGN CONVENTION: +1 ALWAYS means "phase historically favourable to risk assets".
-# NEUTRAL POLICY PORTFOLIO: equity 60 / gold 12 / debt 28, gross 1.00x.
+# ENFORCED IN CI (tests/test_registry.py):
+#   R1  phase_repr: circular  =>  n_obs.effective >= 4
+#   R2  influence governed by min(phase_confidence, mapping_confidence)
+#   R3  evidence_tier: C      =>  one_sided: true (may only REDUCE risk)
+#   R4  sum of tier-C L1 allocation influence <= 150 bps NAV
+#   R6  data_tier: D5         =>  status: cut, or proxy_of set
+#   R7  cycle budgets are for ADDING risk; L18 may cut without limit
+#   + per-bucket budget containment, 3-sigma aggregation, turnover, DAG acyclicity
+#   + mvp: true => data_tier <= D4 and a committed fixture exists
+#
+# NEUTRAL POLICY PORTFOLIO (the zero-signal state all influence deviates from):
+#   equity 60% · gold 12% · debt 28% · gross 1.00x · sector weights = benchmark
+# The debt sleeve's assumed 10%/4%vol is deliberately NOT allowed to set this
+# point; letting it do so is an optimizer corner-solution into the 70% cap.
+# ============================================================================
 
 meta:
-  version: 0.1.0
-  last_reviewed: 2026-08-28
-  neutral_portfolio: {equity_pct: 60, gold_pct: 12, debt_pct: 28, gross_x: 1.00}
+  version: "0.1.0"
+  last_reviewed: "2026-08-29"
+  neutral_portfolio: {equity_pct: 60.0, gold_pct: 12.0, debt_pct: 28.0, gross_x: 1.00}
+  min_traverse_months_by_tier: {A: 6, B: 12, C: 36}
+  tier_influence_multiplier: {A: 1.00, B: 0.60, C: 0.30}
+  tier_c_aggregate_cap_bps: 150
   buckets:
-    B0: {name: secular,       tau_half_months: [96, null], rebalance: annual_review_quarterly_step}
-    B1: {name: generational,  tau_half_months: [48, 96],   rebalance: quarterly}
-    B2: {name: credit_capex,  tau_half_months: [24, 60],   rebalance: quarterly_monthly}
-    B3: {name: business,      tau_half_months: [9, 30],    rebalance: monthly}
-    B4: {name: intermediate,  tau_half_months: [3, 12],    rebalance: weekly_agg_monthly_mod}
-    B5: {name: fast,          tau_half_months: [null, 3],  rebalance: weekly_aggressive_only}
-  bucket_budgets_pp:
-    # [down, up] percentage points of NAV; sector/name are L1
-    agg:
-      B0: {equity: [5,0],  gold: [3,14], debt: [8,10], sector_L1: 4,  name_L1: 0,  lev: [-0.25, 0.00], turnover_pp_yr: 2.5}
-      B1: {equity: [5,5],  gold: [2,8],  debt: [6,6],  sector_L1: 5,  name_L1: 0,  lev: [-0.10, 0.00], turnover_pp_yr: 3.0}
-      B2: {equity: [10,8], gold: [2,4],  debt: [8,10], sector_L1: 8,  name_L1: 0,  lev: [-0.20, 0.10], turnover_pp_yr: 8.0}
-      B3: {equity: [12,12],gold: [2,6],  debt: [10,10],sector_L1: 12, name_L1: 6,  lev: [-0.15, 0.15], turnover_pp_yr: 15.7}
-      B4: {equity: [8,8],  gold: [1.5,4],debt: [6,6],  sector_L1: 10, name_L1: 25, lev: [-0.10, 0.10], turnover_pp_yr: 18.1}
-      B5: {equity: [4,4],  gold: [1,2],  debt: [3,3],  sector_L1: 5,  name_L1: 40, lev: [-0.05, 0.05], turnover_pp_yr: 18.1}
-    mod:
-      B0: {equity: [5,0],  gold: [3,14], debt: [8,10], sector_L1: 3, name_L1: 0,  lev: [-0.25, 0.00], turnover_pp_yr: 2.5}
-      B1: {equity: [4,4],  gold: [2,8],  debt: [5,5],  sector_L1: 4, name_L1: 0,  lev: [-0.10, 0.00], turnover_pp_yr: 2.4}
-      B2: {equity: [8,7],  gold: [2,4],  debt: [7,8],  sector_L1: 6, name_L1: 0,  lev: [-0.20, 0.05], turnover_pp_yr: 6.4}
-      B3: {equity: [9,9],  gold: [2,5],  debt: [8,8],  sector_L1: 8, name_L1: 3,  lev: [-0.15, 0.10], turnover_pp_yr: 11.8}
-      B4: {equity: [4,4],  gold: [1,3],  debt: [3,3],  sector_L1: 5, name_L1: 10, lev: [-0.10, 0.05], turnover_pp_yr: 9.1}
-      B5: {equity: [0,0],  gold: [0,0],  debt: [0,0],  sector_L1: 0, name_L1: 0,  lev: [0,0],         turnover_pp_yr: 0}
-  arbitration:
-    additive: true
-    slow_bound_scaling: {trigger_abs_s: 0.70, factor: "1 - 0.5*|s|", floor: 0.50, applies_to: [B4, B5], direction: upside_only}
-    disagreement_haircut: {formula: "net * (1 - 0.35*D)", D: "1 - |sum(c)| / sum(|c|)", min_rung_gap: 2}
-    no_trade_band_pp: {agg_asset: 1.0, mod_asset: 1.5, name: 0.5}
-    hard_vetoes: [L18_derisk, B0_leverage_ceiling, L15_liquidity]
-  orthogonalization:
-    order: tau_half_desc
-    shrinkage: {formula: "lambda = n_eff/(n_eff+60)", n_eff: "overlap_months / (0.5 * period_months of slower)"}
-    cap_scaling: "budget * sqrt(retained_variance)"
-    cluster_audit: {window_months: 60, linkage: average, distance: "sqrt(2(1-rho))", cut_rho: 0.50, cluster_cap: "1.40 * max(member budget)"}
-  phase:
-    sigma_c_formula: "clip(0.25 + 0.60/sqrt(n_eff) + 0.40*(1 - r2_fit), 0.25, 2.20)"
-    attenuation: "R = exp(-sigma_c^2 / 2)"
-    trigger_slide_bounds:
-      cumulative_abs_dtau: "<= 0.25 * period over rolling 2 periods"
-      refractory: "0.40 * period per event class"
-      application: "1m lag, amortised linearly over min(6m, period/20)"
-      decay: "20%/yr after 5 years"
-      sigma_inflation_rad: [0.20, 0.60]
+    B0: {name: "Secular / long wave",        tau_half_min: 96,  tau_half_max: null, rebalance: "annual review, quarterly step"}
+    B1: {name: "Generational / structural",  tau_half_min: 48,  tau_half_max: 96,   rebalance: "quarterly"}
+    B2: {name: "Credit and capex",           tau_half_min: 24,  tau_half_max: 60,   rebalance: "quarterly / monthly"}
+    B3: {name: "Business, earnings, policy", tau_half_min: 9,   tau_half_max: 30,   rebalance: "monthly"}
+    B4: {name: "Intermediate tactical",      tau_half_min: 3,   tau_half_max: 12,   rebalance: "weekly (agg) / monthly (mod)"}
+    B5: {name: "Fast",                       tau_half_min: 0,   tau_half_max: 3,    rebalance: "weekly, aggressive book only"}
 
+  # Per-bucket allocation authority, +/- pp of NAV, AFTER tier multipliers and
+  # phase attenuation. Individual cycle influence must sum within these (L1).
+  bucket_budgets:
+    aggressive:
+      B0: {equity: [5, 5],  gold: [3, 14], debt: [8, 10], sector_l1: 4,  name_l1: 0,  leverage: [-0.25, 0.00], turnover_pp: 2.5}
+      B1: {equity: [5, 5],  gold: [2, 8],  debt: [6, 6],  sector_l1: 5,  name_l1: 0,  leverage: [-0.10, 0.00], turnover_pp: 3.0}
+      B2: {equity: [10, 8], gold: [2, 4],  debt: [8, 10], sector_l1: 8,  name_l1: 0,  leverage: [-0.20, 0.10], turnover_pp: 8.0}
+      B3: {equity: [12, 12],gold: [2, 6],  debt: [10, 10],sector_l1: 12, name_l1: 6,  leverage: [-0.15, 0.15], turnover_pp: 15.7}
+      B4: {equity: [8, 8],  gold: [1.5, 4],debt: [6, 6],  sector_l1: 10, name_l1: 25, leverage: [-0.10, 0.10], turnover_pp: 18.1}
+      B5: {equity: [4, 4],  gold: [1, 2],  debt: [3, 3],  sector_l1: 5,  name_l1: 40, leverage: [-0.05, 0.05], turnover_pp: 18.1}
+    moderate:
+      B0: {equity: [5, 5],  gold: [3, 14], debt: [8, 10], sector_l1: 3,  name_l1: 0,  leverage: [-0.25, 0.00], turnover_pp: 2.5}
+      B1: {equity: [4, 4],  gold: [2, 8],  debt: [5, 5],  sector_l1: 4,  name_l1: 0,  leverage: [-0.10, 0.00], turnover_pp: 2.4}
+      B2: {equity: [8, 7],  gold: [2, 4],  debt: [7, 8],  sector_l1: 6,  name_l1: 0,  leverage: [-0.20, 0.05], turnover_pp: 6.4}
+      B3: {equity: [9, 9],  gold: [2, 5],  debt: [8, 8],  sector_l1: 8,  name_l1: 3,  leverage: [-0.15, 0.10], turnover_pp: 11.8}
+      B4: {equity: [4, 4],  gold: [1, 3],  debt: [3, 3],  sector_l1: 5,  name_l1: 10, leverage: [-0.10, 0.05], turnover_pp: 9.1}
+      B5: {equity: [0, 0],  gold: [0, 0],  debt: [0, 0],  sector_l1: 0,  name_l1: 0,  leverage: [0, 0],        turnover_pp: 0}
+
+  # Hard mandate caps (owner-frozen, DECISIONS.md Q10/Q12/Q15).
+  mandate_caps:
+    equity_floor_pct: 15.0
+    gold_max_pct: 50.0
+    gold_insurance_floor_pct: 4.0     # L02; binds at 2.8 sigma on the downside — known and intended
+    debt_max_pct: 70.0
+    gross_leverage_max_x: 1.50
+    gross_leverage_target_avg_x: 1.25
+    name_entry_max_pct: 6.0
+    name_drift_max_pct: 10.0
+    min_names_when_equity_below_50pct: 10
+    in_progress_positions_max_pct: 20.0
+    options_notional_directional_max_pct: 50.0
+    options_notional_tail_max_pct: 75.0
+    # OPEN — see DECISIONS.md. The absolute form is a permanent forced underweight
+    # to financials (~30-35% of Nifty 500). Relative form recommended.
+    sector_cap_mode: relative          # relative | absolute
+    sector_cap_absolute_pct: {aggressive: 25.0, moderate: 20.0}
+    sector_cap_relative_pp: {aggressive: 10.0, moderate: 8.0}
+
+# ============================================================================
+# CYCLES
+# ============================================================================
 cycles:
 
-  - id: monetary_order_debasement
-    bucket: B0
-    tau_half_months: 120
-    phase_repr: ordinal
-    claimed_period_years: [60, 90]
-    parent_id: null
-    family: long_wave
-    mechanism: "Sovereign debt accumulates until service crowds out fiscal space; resolved by negative real rates, monetisation, or reset."
-    n_obs: {timeseries: 2, cross_sectional: 8, effective: 2.0}
-    evidence_tier: C
-    evidence_note: "Mechanism is tier B (Reinhart & Sbrancia 2011, ~35 country-years of repression). The CLOCK is tier C: n=2-3 successions."
-    data_tier: D1
-    indicators:
-      - {code: GDS,  definition: "0.6*(G4 govt debt/GDP) + 0.4*(US net interest/revenue)", source_name: "IMF WEO GGXWDG_NGDP + CBO", source_url: "https://www.imf.org/en/Publications/WEO", freq: A, history_start: 1980, pit_status: lag_approx, lag_days: 180}
-      - {code: RPR,  definition: "GDP-weighted G4 real policy rate", source_name: "BIS policy rates + FRED/OECD CPI", source_url: "https://data.bis.org/", freq: M, history_start: 1960, pit_status: true, lag_days: 30}
-      - {code: CBGS, definition: "z(official gold/reserves) + z(trailing 4q CB net purchases)", source_name: "WGC Goldhub + IMF IFS", source_url: "https://www.gold.org/goldhub", freq: Q, history_start: 1948, pit_status: true, lag_days: 60}
-    phase_state: {stage_posterior: {P3: 0.35, P4: 0.55, P5: 0.10}, tau_years: 6.0, sigma_c_rad: null, asof: 2026-08-28}
-    gain: {target: gold_weight, k_pp_per_unit: 5.5, mapping_fn: linear}
-    influence:
-      agg: {equity_pp: [5,0], gold_pp: [3,14], debt_pp: [8,10], sector_L1_pp: 4, name_L1_pp: 0, leverage_x: [-0.25, 0.00]}
-      mod: {equity_pp: [5,0], gold_pp: [3,14], debt_pp: [8,10], sector_L1_pp: 3, name_L1_pp: 0, leverage_x: [-0.25, 0.00]}
-    one_sided: true
-    rate_limit: {max_delta_pp_per_month: 0.083, min_traverse_months: 36}
-    owner_layer: L02
-    mvp: true
-    status: active
+# ---------------------------------------------------------------- B0 secular
+- id: monetary_order_debasement
+  name: "Monetary order / sovereign debt debasement arc"
+  family: debasement
+  parent_id: null
+  bucket: B0
+  claimed_period_years: [60, 90]
+  period_dispersion_cv: null
+  tau_half_months: 120
+  phase_repr: ordinal              # R1: n_eff < 4, cannot be circular
+  mechanism: "Sovereign debt build-up forces negative real rates or monetisation, ending in liquidation or monetary reset."
+  n_obs: {timeseries: 2, cross_sectional: 8, effective: 2.0}
+  evidence_tier: C
+  evidence_note: "Dalio (2018, 2021); Reinhart & Rogoff (2009); ~8 financial-repression episodes. Zero India observations."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: us_debt_gdp,        definition: "US general govt debt / GDP",              source_name: IMF WEO,  freq: A, history_start: 1980, pit_status: true, lag_days: 180}
+    - {code: real_policy_rate_g4,definition: "GDP-weighted G4 policy rate minus core CPI", source_name: FRED,   freq: M, history_start: 1960, pit_status: true, lag_days: 30}
+    - {code: usd_reserve_share,  definition: "USD share of allocated FX reserves",       source_name: IMF COFER,freq: Q, history_start: 1999, pit_status: true, lag_days: 90}
+    - {code: cb_gold_net_purch,  definition: "Central bank net gold purchases, 4q sum",  source_name: World Gold Council, freq: Q, history_start: 2000, pit_status: true, lag_days: 45}
+  gain: {target: gold_pct, k_pp_per_unit: 10.0, mapping_fn: logistic, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [0.5, 0], gold_pp: [0.3, 0.7], debt_pp: [0.3, 0], sector_l1_pp: 0.5, name_l1_pp: 0, leverage_x: [-0.15, 0.00]}
+    mod: {equity_pp: [0.5, 0], gold_pp: [0.3, 0.7], debt_pp: [0.3, 0], sector_l1_pp: 0.5, name_l1_pp: 0, leverage_x: [-0.15, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.025, min_traverse_months: 240}
+  hysteresis: {enter_z: 1.5, exit_z: 0.7, min_dwell_months: 36, smooth_window_months: 24}
+  one_sided: true                  # R3 — tier C: may only REDUCE risk.
+  # R4 RESOLUTION (L01 vs L02 interface conflict, recorded rather than hidden):
+  #   L02 proposed gold up to ~10pp for this cycle. L01 rule R4 caps the AGGREGATE
+  #   L1 allocation influence of all tier-C cycles at 150 bps of NAV. This cycle is
+  #   the only active tier-C entry, so it gets the whole 150 bps and no more:
+  #   0.5 + 0.7 + 0.3 = 1.5pp. L01 binds, per its own recommendation in section 8.5.
+  #   The long-wave debasement view is therefore expressed almost entirely through
+  #   the STRUCTURAL gold insurance floor (meta.mandate_caps.gold_insurance_floor_pct),
+  #   which is a mandate backstop, NOT cycle influence — and through the tail-hedge
+  #   policy in L16. That is the honest place for a 2-observation claim to live.
+  triggers:
+    - {event_id: sovereign_downgrade_g4,   definition: "G4 sovereign downgraded by a major agency", delta_tau_years: 2.0, sigma_inflation_rad: 0.3, refractory_years: 3}
+    - {event_id: reserve_system_change,    definition: "Announced multilateral settlement/reserve arrangement displacing USD at scale", delta_tau_years: 3.0, sigma_inflation_rad: 0.5, refractory_years: 5}
+    - {event_id: explicit_debt_monetisation, definition: "Central bank permanent monetisation of fiscal deficit", delta_tau_years: 2.5, sigma_inflation_rad: 0.4, refractory_years: 3}
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.8, retained_variance: 1.00}
+  owner_layer: L02
+  mvp: true
+  status: active
 
-  - id: india_credit_financial_cycle
-    bucket: B2
-    tau_half_months: 48
-    phase_repr: state
-    claimed_period_years: [8, 16]
-    period_dispersion_cv: 0.35
-    parent_id: null
-    family: credit
-    mechanism: "Bank credit growth raises collateral values, which relaxes constraints and raises credit further; unwinds through capital impairment."
-    n_obs: {timeseries: 2, cross_sectional: 17, effective: 2.4}
-    evidence_tier: B
-    evidence_note: "n(XS)=17 via the BIS panel rescues this from tier C. Drehmann, Borio & Tsatsaronis (2012): financial cycle ~16y vs business cycle 1-8y; BIS credit-gap ~10pp distress threshold."
-    data_tier: D1
-    indicators:
-      - {code: CGAP, definition: "credit-to-GDP gap, one-sided HP lambda=400000", source_name: "BIS CREDIT_GAPS India", source_url: "https://data.bis.org/topics/CREDIT_GAPS", freq: Q, history_start: 1951, pit_status: true, lag_days: 150}
-      - {code: DBCG, definition: "SCB non-food credit YoY minus nominal GDP YoY", source_name: "RBI DBIE + MOSPI", source_url: "https://dbie.rbi.org.in", freq: M, history_start: 1972, pit_status: lag_approx, lag_days: 45}
-      - {code: GNPA, definition: "system GNPA ratio, 4q change", source_name: "RBI Financial Stability Report", source_url: "https://rbi.org.in", freq: SA, history_start: 1997, pit_status: true, lag_days: 90}
-    hysteresis: {enter_z: 0.75, exit_z: 0.45, min_dwell_months: 8, smooth_window_months: 16}
-    gain: {target: equity_weight, k_pp_per_unit: -1.50, mapping_fn: linear}
-    influence:
-      agg: {equity_pp: [10,8], gold_pp: [2,4], debt_pp: [8,10], sector_L1_pp: 8, name_L1_pp: 0, leverage_x: [-0.20, 0.10]}
-      mod: {equity_pp: [8,7],  gold_pp: [2,4], debt_pp: [7,8],  sector_L1_pp: 6, name_L1_pp: 0, leverage_x: [-0.20, 0.05]}
-    one_sided: false
-    rate_limit: {max_delta_pp_per_month: 0.104, min_traverse_months: 96}
-    owner_layer: L03
-    mvp: true
-    status: active
+- id: india_development_arc
+  name: "India per-capita development S-curve"
+  family: structural_india
+  parent_id: null
+  bucket: B0
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 120
+  phase_repr: state
+  mechanism: "Rising per-capita income shifts consumption mix and deepens financial intermediation; monotone, not cyclic."
+  n_obs: {timeseries: 1, cross_sectional: 15, effective: 8.0}
+  evidence_tier: B
+  evidence_note: "Cross-sectional analogues: KR, TW, JP, CN, TH, MY, BR and others through the same income band."
+  data_tier: D2
+  proxy_of: null
+  indicators:
+    - {code: india_gdp_pc_ppp,    definition: "India GDP per capita, PPP, constant",    source_name: World Bank, freq: A, history_start: 1960, pit_status: lag_approx, lag_days: 365}
+    - {code: india_credit_gdp,    definition: "Private credit / GDP",                   source_name: BIS,        freq: Q, history_start: 1951, pit_status: true, lag_days: 120}
+    - {code: hh_financial_share,  definition: "Household financial assets / total household assets", source_name: RBI DBIE, freq: A, history_start: 2000, pit_status: lag_approx, lag_days: 270}
+  gain: {target: sector_tilt, k_pp_per_unit: 3.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [2, 3], gold_pp: [1, 4], debt_pp: [3, 4], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [-0.10, 0.00]}
+    mod: {equity_pp: [2, 3], gold_pp: [1, 4], debt_pp: [3, 4], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.10, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.025, min_traverse_months: 240}
+  hysteresis: {enter_z: 1.0, exit_z: 0.5, min_dwell_months: 24, smooth_window_months: 24}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.6, retained_variance: 1.00}
+  owner_layer: L02
+  mvp: true
+  status: active
 
-  - id: india_business_cycle
-    bucket: B3
-    tau_half_months: 18
-    phase_repr: state          # FAILS R1 (n_eff=3): nowcast, not a clock
-    claimed_period_years: [4.5, 6.0]
-    period_dispersion_cv: 0.30
-    parent_id: null
-    family: business
-    mechanism: "Inventory, fixed investment and external demand co-move; amplified post-1991 by financial globalisation and private investment decisions."
-    n_obs: {timeseries: 3, cross_sectional: 17, effective: 3.0}
-    evidence_tier: B
-    evidence_note: "Pandey, Patnaik & Shah (2017) IGDR 10(1). Recessions 1999Q4-2003Q1, 2007Q2-2009Q3, 2011Q2-2012Q4; mean expansion 12q, recession 9q. n_eff=3 => R1 fails => state."
-    data_tier: D1
-    indicators:
-      - {code: IIP, definition: "IIP SA, CF-filtered cyclical component", source_name: MOSPI, source_url: "https://mospi.gov.in", freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
-      - {code: GVA, definition: "real GVA YoY, seasonally adjusted", source_name: "MOSPI National Accounts", source_url: "https://mospi.gov.in", freq: Q, history_start: 1996, pit_status: lag_approx, lag_days: 60}
-      - {code: GST, definition: "gross GST collections, 3m/12m ratio", source_name: "GST Council", source_url: "https://gstcouncil.gov.in", freq: M, history_start: 2017, pit_status: true, lag_days: 3}
-      - {code: EWB, definition: "e-way bill volume YoY", source_name: "NIC/GSTN", source_url: "https://ewaybillgst.gov.in", freq: M, history_start: 2018, pit_status: true, lag_days: 10}
-    hysteresis: {enter_z: 0.75, exit_z: 0.45, min_dwell_months: 4, smooth_window_months: 6}
-    gain: {target: equity_weight, k_pp_per_unit: 2.20, mapping_fn: linear}
-    influence:
-      agg: {equity_pp: [12,12], gold_pp: [2,6], debt_pp: [10,10], sector_L1_pp: 12, name_L1_pp: 6, leverage_x: [-0.15, 0.15]}
-      mod: {equity_pp: [9,9],   gold_pp: [2,5], debt_pp: [8,8],   sector_L1_pp: 8,  name_L1_pp: 3, leverage_x: [-0.15, 0.10]}
-    one_sided: false
-    rate_limit: {max_delta_pp_per_month: 0.667, min_traverse_months: 36}
-    owner_layer: L04
-    mvp: true
-    status: active
+# ----------------------------------------------------------- B1 generational
+- id: equity_valuation_reversion
+  name: "Aggregate equity valuation mean reversion"
+  family: valuation
+  parent_id: null
+  bucket: B1
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 84
+  phase_repr: state                # half-life 7-10y, explicitly NOT periodic
+  mechanism: "Market-cap/GDP and long-window earnings yield revert toward a slowly drifting anchor."
+  n_obs: {timeseries: 2, cross_sectional: 20, effective: 6.0}
+  evidence_tier: B
+  evidence_note: "Campbell & Shiller (1988); Goyal & Welch (2008) on weak short-horizon power; Campbell & Thompson (2008) sign restrictions."
+  data_tier: D2
+  proxy_of: null
+  indicators:
+    - {code: mcap_gdp_india,     definition: "Total listed market cap / nominal GDP",           source_name: "NSE + MOSPI", freq: M, history_start: 1999, pit_status: lag_approx, lag_days: 60}
+    - {code: nifty500_earn_yield,definition: "Trailing earnings yield, Nifty 500",              source_name: NSE,           freq: D, history_start: 1999, pit_status: true, lag_days: 1}
+    - {code: eyield_gsec_spread, definition: "Earnings yield minus 10y GSec yield",             source_name: "NSE + CCIL",  freq: D, history_start: 1999, pit_status: true, lag_days: 1}
+  gain: {target: equity_pct, k_pp_per_unit: 5.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [5, 5], gold_pp: [1, 4], debt_pp: [4, 4], sector_l1_pp: 3, name_l1_pp: 0, leverage_x: [-0.10, 0.00]}
+    mod: {equity_pp: [4, 4], gold_pp: [1, 4], debt_pp: [4, 4], sector_l1_pp: 3, name_l1_pp: 0, leverage_x: [-0.10, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.060, min_traverse_months: 168}
+  hysteresis: {enter_z: 1.0, exit_z: 0.4, min_dwell_months: 12, smooth_window_months: 18}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.5, retained_variance: 1.00}
+  owner_layer: L05
+  mvp: true
+  status: active
 
-  - id: kitchin_inventory
-    bucket: B3
-    tau_half_months: 11
-    phase_repr: circular       # PASSES R1 (n_eff=7)
-    claimed_period_years: [3.0, 5.0]
-    period_dispersion_cv: 0.25
-    parent_id: india_business_cycle
-    family: business
-    mechanism: "Production over- and under-shoots demand because inventory decisions use lagged information; the correction is the cycle."
-    n_obs: {timeseries: 7, cross_sectional: 20, effective: 7.0}
-    evidence_tier: B
-    data_tier: D1
-    indicators:
-      - {code: IIPQ, definition: "IIP manufacturing vs 24m trend, CF-filtered", source_name: MOSPI, source_url: "https://mospi.gov.in", freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
-      - {code: PMII, definition: "India Mfg PMI, stocks-of-purchases sub-index", source_name: "S&P Global (headline free)", source_url: "https://www.pmi.spglobal.com", freq: M, history_start: 2005, pit_status: true, lag_days: 1}
-      - {code: INVS, definition: "aggregate inventory/sales, listed non-financial universe", source_name: "NSE/BSE filings (own archive)", source_url: "https://www.nseindia.com", freq: Q, history_start: 2001, pit_status: reconstructed, lag_days: 55}
-    phase_state: {mu_rad: null, sigma_c_rad: 0.76, attenuation_R: 0.751, asof: null}
-    gain: {target: cyclical_sector_tilt, k_pp_per_unit: 4.0, mapping_fn: cos, peak_phase_rad: 1.05}
-    influence:
-      agg: {equity_pp: [4,4], gold_pp: [0,0], debt_pp: [3,3], sector_L1_pp: 6, name_L1_pp: 3,   leverage_x: [0,0]}
-      mod: {equity_pp: [3,3], gold_pp: [0,0], debt_pp: [2,2], sector_L1_pp: 4, name_L1_pp: 1.5, leverage_x: [0,0]}
-    orthogonalization: {beta_prior: 0.55, retained_variance: 0.45}
-    one_sided: false
-    rate_limit: {max_delta_pp_per_month: 0.364, min_traverse_months: 22}
-    owner_layer: L04
-    mvp: true
-    status: active
+# ------------------------------------------------------------ B2 credit/capex
+- id: india_credit_financial_cycle
+  name: "India credit / financial cycle"
+  family: credit
+  parent_id: null
+  bucket: B2
+  claimed_period_years: [8, 16]
+  period_dispersion_cv: 0.35
+  tau_half_months: 48
+  phase_repr: state                # R1: n_eff = 2, cannot be circular
+  mechanism: "Credit and collateral values reinforce each other through bank capital and risk appetite; slow build, fast collapse."
+  n_obs: {timeseries: 2, cross_sectional: 17, effective: 9.0}
+  evidence_tier: B
+  evidence_note: "Borio (2014); Drehmann, Borio & Tsatsaronis (2012); Schularick & Taylor (2012) — credit growth is the best single crisis predictor; Jorda, Schularick & Taylor (2013)."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: bis_credit_gap_ind, definition: "BIS credit-to-GDP gap, India (published vintage — do NOT recompute)", source_name: BIS, freq: Q, history_start: 1951, pit_status: true, lag_days: 120}
+    - {code: real_credit_growth, definition: "Bank credit growth YoY minus CPI YoY",           source_name: RBI DBIE, freq: M, history_start: 1996, pit_status: true, lag_days: 30}
+    - {code: credit_nominal_gdp_spread, definition: "Bank credit growth minus nominal GDP growth", source_name: "RBI + MOSPI", freq: Q, history_start: 1996, pit_status: lag_approx, lag_days: 90}
+    - {code: gnpa_ratio,         definition: "Scheduled commercial bank gross NPA ratio",      source_name: RBI FSR,  freq: S, history_start: 2000, pit_status: lag_approx, lag_days: 90}
+    - {code: aa_gsec_spread,     definition: "AA corporate minus GSec spread, 3y",             source_name: CCIL,     freq: D, history_start: 2005, pit_status: true, lag_days: 1}
+  gain: {target: equity_pct, k_pp_per_unit: 6.0, mapping_fn: table, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [6, 4], gold_pp: [1, 2], debt_pp: [5, 6], sector_l1_pp: 5, name_l1_pp: 0, leverage_x: [-0.20, 0.05]}
+    mod: {equity_pp: [5, 4], gold_pp: [1, 2], debt_pp: [4, 5], sector_l1_pp: 4, name_l1_pp: 0, leverage_x: [-0.20, 0.05]}
+  rate_limit: {max_delta_pp_per_month: 0.125, min_traverse_months: 96}
+  hysteresis: {enter_z: 1.0, exit_z: 0.4, min_dwell_months: 12, smooth_window_months: 12}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.4, retained_variance: 1.00}
+  owner_layer: L03
+  mvp: true
+  status: active
 
-  - id: intermediate_momentum_12_1
-    bucket: B4
-    tau_half_months: 6
-    phase_repr: state
-    claimed_period_years: null
-    parent_id: null
-    family: price_persistence
-    mechanism: "Slow diffusion of information plus flow-driven continuation; decays and crashes after sharp market reversals."
-    n_obs: {timeseries: 30, cross_sectional: 40, effective: 30.0}
-    evidence_tier: A
-    evidence_note: "Jegadeesh & Titman (1993). India: Agarwalla, Jacob & Varma (2013) publish a free WML series, but it is BUILT FROM CMIE PROWESS - use as external validation benchmark only, NEVER as a model input."
-    data_tier: D1/D4
-    indicators:
-      - {code: R12_1, definition: "cumulative return t-12m to t-1m, skip 1m, corporate-action adjusted", source_name: "NSE/BSE bhavcopy archive (own build)", source_url: "https://www.nseindia.com/all-reports", freq: D, history_start: 1994, pit_status: reconstructed, lag_days: 0}
-      - {code: WMLX,  definition: "IIM-A WML factor, validation reference only", source_name: "IIMA IFFM", source_url: "https://faculty.iima.ac.in/iffm/Indian-Fama-French-Momentum/", freq: D, history_start: 1993, pit_status: true, lag_days: 30}
-    hysteresis: {enter_z: 0.50, exit_z: 0.25, min_dwell_months: 1, smooth_window_months: 2}
-    influence:
-      agg: {equity_pp: [8,8], gold_pp: [1.5,4], debt_pp: [6,6], sector_L1_pp: 10, name_L1_pp: 25, leverage_x: [-0.10, 0.10]}
-      mod: {equity_pp: [4,4], gold_pp: [1,3],   debt_pp: [3,3], sector_L1_pp: 5,  name_L1_pp: 10, leverage_x: [-0.10, 0.05]}
-    one_sided: false
-    rate_limit: {max_delta_pp_per_month: 1.333, min_traverse_months: 12}
-    owner_layer: L08
-    mvp: true
-    status: active
+- id: global_liquidity_cycle
+  name: "Global liquidity / dollar cycle"
+  family: global_liquidity
+  parent_id: null
+  bucket: B2
+  claimed_period_years: [4, 8]
+  period_dispersion_cv: 0.30
+  tau_half_months: 36
+  phase_repr: state
+  mechanism: "Fed policy and the dollar drive global risk appetite and EM capital flows (Rey's global financial cycle)."
+  n_obs: {timeseries: 6, cross_sectional: 25, effective: 12.0}
+  evidence_tier: B
+  evidence_note: "Rey (2013) on the global financial cycle; extensive EM-transmission literature."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: dxy,               definition: "Trade-weighted US dollar index",         source_name: FRED, freq: D, history_start: 1973, pit_status: true, lag_days: 1}
+    - {code: us_real_10y,       definition: "10y TIPS real yield",                    source_name: FRED, freq: D, history_start: 2003, pit_status: true, lag_days: 1}
+    - {code: fed_policy_stance, definition: "Fed funds minus core PCE YoY",           source_name: FRED, freq: M, history_start: 1960, pit_status: true, lag_days: 30}
+  gain: {target: equity_pct, k_pp_per_unit: 2.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [0.5, 1], debt_pp: [2, 2], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [2, 2], gold_pp: [0.5, 1], debt_pp: [2, 2], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.05]}
+  rate_limit: {max_delta_pp_per_month: 0.056, min_traverse_months: 72}
+  hysteresis: {enter_z: 0.8, exit_z: 0.3, min_dwell_months: 6, smooth_window_months: 9}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.4, retained_variance: 1.00}
+  owner_layer: L06
+  mvp: true
+  status: active
 
-  # ---- CUT ENTRIES: kept as stubs so they are not silently re-proposed ----
+- id: corporate_profit_share_cycle
+  name: "Corporate profit share mean reversion"
+  family: valuation
+  parent_id: equity_valuation_reversion
+  bucket: B2
+  claimed_period_years: [7, 12]
+  period_dispersion_cv: null
+  tau_half_months: 42
+  phase_repr: state
+  mechanism: "Margins revert via capacity addition, wage share and competitive entry."
+  n_obs: {timeseries: 1.5, cross_sectional: 20, effective: 6.0}
+  evidence_tier: B
+  evidence_note: "Long-run margin mean reversion is well documented cross-country; India's own record is ~1.5 cycles."
+  data_tier: D2
+  proxy_of: null
+  indicators:
+    - {code: profit_gdp_india,  definition: "Listed corporate PAT / nominal GDP",      source_name: "NSE aggregate + MOSPI", freq: Q, history_start: 2001, pit_status: lag_approx, lag_days: 75}
+    - {code: nifty500_margin,   definition: "Aggregate EBITDA margin, ex-financials",  source_name: "exchange filings",      freq: Q, history_start: 2001, pit_status: lag_approx, lag_days: 60}
+  gain: {target: equity_pct, k_pp_per_unit: 2.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [0.5, 1], debt_pp: [1, 2], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [0.00, 0.00]}
+    mod: {equity_pp: [1, 1], gold_pp: [0.5, 1], debt_pp: [1, 1], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [0.00, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.048, min_traverse_months: 84}
+  hysteresis: {enter_z: 1.0, exit_z: 0.4, min_dwell_months: 12, smooth_window_months: 12}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: 0.55, shrinkage_lambda: 0.5, retained_variance: 0.70}
+  owner_layer: L05
+  mvp: true
+  status: active
 
-  - id: real_estate_long_cycle_18y
-    bucket: B1
-    status: cut
-    data_tier: D5
-    evidence_tier: C
-    n_obs: {timeseries: 1, cross_sectional: 3, effective: 1.0}
-    cut_reason: "No free long Indian series. NHB Residex from 2007, RBI HPI from 2010 => ~1 observation. NOT proxied: housing credit growth already enters india_credit_financial_cycle, so a separate 18y clock would be pure narrative with zero incremental data."
-    owner_layer: null
-    mvp: false
+# --------------------------------------------------- B3 business/earnings/policy
+- id: india_business_cycle
+  name: "India business cycle"
+  family: business
+  parent_id: null
+  bucket: B3
+  claimed_period_years: [4, 7]
+  period_dispersion_cv: 0.35
+  tau_half_months: 18
+  phase_repr: state                # R1: 3 recessions since 1996, fails the n_eff>=4 clock test
+  mechanism: "Inventory, investment and external demand combine into an aggregate activity cycle."
+  n_obs: {timeseries: 3, cross_sectional: 17, effective: 10.0}
+  evidence_tier: B
+  evidence_note: "Burns & Mitchell (1946) dating methodology; classifier thresholds fitted on the JST panel and applied to India out-of-sample."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: iip_yoy,        definition: "Index of industrial production YoY",  source_name: MOSPI,         freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
+    - {code: pmi_composite,  definition: "S&P Global India composite PMI",      source_name: "S&P Global",  freq: M, history_start: 2005, pit_status: true, lag_days: 3}
+    - {code: gst_collections,definition: "Monthly GST collections YoY",         source_name: "GST portal",  freq: M, history_start: 2017, pit_status: true, lag_days: 1}
+    - {code: real_gdp_yoy,   definition: "Real GDP growth YoY",                 source_name: MOSPI,         freq: Q, history_start: 1996, pit_status: lag_approx, lag_days: 60}
+  gain: {target: equity_pct, k_pp_per_unit: 4.0, mapping_fn: table, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [4, 4], gold_pp: [0.5, 1], debt_pp: [3, 3], sector_l1_pp: 3, name_l1_pp: 1, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [3, 3], gold_pp: [0.5, 1], debt_pp: [3, 3], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [-0.05, 0.05]}
+  rate_limit: {max_delta_pp_per_month: 0.222, min_traverse_months: 36}
+  hysteresis: {enter_z: 0.8, exit_z: 0.3, min_dwell_months: 6, smooth_window_months: 6}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.35, retained_variance: 1.00}
+  owner_layer: L04
+  mvp: true
+  status: active
 
-  - id: earnings_revision_cycle
-    bucket: B3
-    status: cut
-    data_tier: D5
-    cut_reason: "I/B/E/S-style analyst estimates and revisions do not exist free for India."
-    replacement: realised_eps_breadth
-    replacement_note: "fraction of investable universe whose trailing-4q EPS exceeds the value 4 quarters earlier, from scraped exchange results; D2, lag 45-60d, tier B->C per R6. Loses ALL forward content."
-    owner_layer: L11
-    mvp: false
+- id: inflation_cycle
+  name: "India inflation cycle"
+  family: macro_prices
+  parent_id: null
+  bucket: B3
+  claimed_period_years: [3, 5]
+  period_dispersion_cv: 0.30
+  tau_half_months: 15
+  phase_repr: state
+  mechanism: "Food (monsoon), fuel (crude and INR) and core (output gap) components with different persistence."
+  n_obs: {timeseries: 7, cross_sectional: 30, effective: 14.0}
+  evidence_tier: B
+  evidence_note: "Well-observed; the equity-debt correlation sign flip across inflation regimes is the portfolio-relevant fact."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: cpi_headline_yoy, definition: "CPI combined YoY",                   source_name: MOSPI,   freq: M, history_start: 2011, pit_status: true, lag_days: 12}
+    - {code: cpi_core_yoy,     definition: "CPI ex food and fuel YoY",           source_name: MOSPI,   freq: M, history_start: 2011, pit_status: true, lag_days: 12}
+    - {code: wpi_yoy,          definition: "WPI YoY (longer history than CPI)",  source_name: "Office of the Economic Adviser", freq: M, history_start: 1994, pit_status: true, lag_days: 14}
+    - {code: brent_inr,        definition: "Brent crude in INR",                 source_name: "FRED + RBI", freq: D, history_start: 1994, pit_status: true, lag_days: 1}
+  gain: {target: gold_pct, k_pp_per_unit: 3.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [1, 3], debt_pp: [3, 3], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.00]}
+    mod: {equity_pp: [2, 2], gold_pp: [1, 3], debt_pp: [1, 1], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.133, min_traverse_months: 30}
+  hysteresis: {enter_z: 0.8, exit_z: 0.3, min_dwell_months: 6, smooth_window_months: 6}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.35, retained_variance: 1.00}
+  owner_layer: L04
+  mvp: true
+  status: active
 
-  - id: expiry_microstructure
-    bucket: B5
-    status: cut
-    cut_reason: "wrong_layer - feasible (D1) but has no business setting allocation. Moved to execution (L15)."
-    owner_layer: L15
-    mvp: false
+- id: rbi_policy_rate_cycle
+  name: "RBI policy rate cycle"
+  family: macro_prices
+  parent_id: inflation_cycle
+  bucket: B3
+  claimed_period_years: [3, 5]
+  period_dispersion_cv: 0.28
+  tau_half_months: 16
+  phase_repr: circular             # R1: n_eff = 5.5 >= 4. Marginal — flagged for annual review.
+  mechanism: "Monetary reaction function to inflation and the output gap produces a repeatable tightening/easing arc."
+  n_obs: {timeseries: 5.5, cross_sectional: 30, effective: 5.5}
+  evidence_tier: B
+  evidence_note: "5-6 complete arcs since 2000. Circular representation is marginal under R1 and must be re-checked each annual review."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: repo_rate,     definition: "RBI repo rate",                         source_name: RBI DBIE, freq: D, history_start: 2000, pit_status: true, lag_days: 0}
+    - {code: real_repo,     definition: "Repo minus CPI core YoY",               source_name: "RBI + MOSPI", freq: M, history_start: 2011, pit_status: true, lag_days: 12}
+    - {code: term_spread,   definition: "10y GSec minus 91d T-bill",             source_name: CCIL,     freq: D, history_start: 1999, pit_status: true, lag_days: 1}
+    - {code: laf_net,       definition: "LAF net liquidity position",            source_name: RBI DBIE, freq: D, history_start: 2004, pit_status: true, lag_days: 1}
+  gain: {target: gold_pct, k_pp_per_unit: 2.0, mapping_fn: cos, peak_phase_rad: 3.1416}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [0.5, 2], debt_pp: [2, 2], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [2, 2], gold_pp: [0.5, 1], debt_pp: [2, 2], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.05]}
+  rate_limit: {max_delta_pp_per_month: 0.125, min_traverse_months: 32}
+  hysteresis: {enter_z: 0.8, exit_z: 0.3, min_dwell_months: 6, smooth_window_months: 6}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: 0.45, shrinkage_lambda: 0.4, retained_variance: 0.80}
+  owner_layer: L04
+  mvp: true
+  status: active
+
+- id: kitchin_inventory
+  name: "Kitchin inventory cycle"
+  family: business
+  parent_id: india_business_cycle
+  bucket: B3
+  claimed_period_years: [3, 5]
+  period_dispersion_cv: 0.25
+  tau_half_months: 12
+  phase_repr: circular             # R1: n_eff = 7 >= 4
+  mechanism: "Order-to-delivery lags cause inventory over- and under-shooting against demand."
+  n_obs: {timeseries: 7, cross_sectional: 40, effective: 7.0}
+  evidence_tier: B
+  evidence_note: "Kitchin (1923). Damped by modern supply chains but still visible in Indian manufacturing and commodities."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: iip_use_based,   definition: "IIP by use-based category, primary vs consumer",  source_name: MOSPI, freq: M, history_start: 1994, pit_status: lag_approx, lag_days: 42}
+    - {code: capacity_util,   definition: "RBI OBICUS capacity utilisation",                 source_name: RBI,   freq: Q, history_start: 2008, pit_status: lag_approx, lag_days: 120}
+    - {code: inventory_sales, definition: "Aggregate inventory / sales, ex-financials",      source_name: "exchange filings", freq: Q, history_start: 2001, pit_status: lag_approx, lag_days: 60}
+  gain: {target: sector_tilt, k_pp_per_unit: 2.0, mapping_fn: cos, peak_phase_rad: 0.0}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [0, 0], debt_pp: [1, 1], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [0.00, 0.00]}
+    mod: {equity_pp: [1, 1], gold_pp: [0, 0], debt_pp: [1, 1], sector_l1_pp: 0, name_l1_pp: 0, leverage_x: [0.00, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.167, min_traverse_months: 24}
+  hysteresis: {enter_z: 0.8, exit_z: 0.3, min_dwell_months: 4, smooth_window_months: 4}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: 0.50, shrinkage_lambda: 0.4, retained_variance: 0.75}
+  owner_layer: L04
+  mvp: true
+  status: active
+
+- id: smallcap_breadth_cycle
+  name: "Small-cap breadth and liquidity premium cycle"
+  family: risk_appetite
+  parent_id: null
+  bucket: B3
+  claimed_period_years: [3, 5]
+  period_dispersion_cv: 0.30
+  tau_half_months: 14
+  phase_repr: circular             # R1: n_eff = 4, exactly at the bar
+  mechanism: "Retail flow, float and issuance dynamics drive swings in the small-cap liquidity premium."
+  n_obs: {timeseries: 4, cross_sectional: 10, effective: 4.0}
+  evidence_tier: B
+  evidence_note: "Four clean India episodes (2003-08, 2013-18, 2018-20 bust, 2020-24). Exactly at the R1 bar — downgrade to state on any revision."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: smallcap_largecap_ratio, definition: "Nifty Smallcap 250 / Nifty 50 total return ratio", source_name: NSE, freq: D, history_start: 2005, pit_status: true, lag_days: 1}
+    - {code: pct_above_200dma,        definition: "Share of NIFTY 750 above the 200-day MA",          source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+    - {code: net_equity_supply,       definition: "IPO + QIP issuance minus buybacks, / market cap, 12m", source_name: "SEBI + exchanges", freq: M, history_start: 2003, pit_status: true, lag_days: 30}
+  gain: {target: smallcap_tilt, k_pp_per_unit: 3.0, mapping_fn: cos, peak_phase_rad: 0.0}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [0, 0], debt_pp: [1, 1], sector_l1_pp: 1, name_l1_pp: 3, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [1, 1], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 1, name_l1_pp: 0, leverage_x: [-0.05, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.143, min_traverse_months: 28}
+  hysteresis: {enter_z: 1.0, exit_z: 0.4, min_dwell_months: 6, smooth_window_months: 6}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.4, retained_variance: 1.00}
+  owner_layer: L07
+  mvp: true
+  status: active
+
+- id: sector_rotation_cycle
+  name: "Sector rotation cycle"
+  family: sector
+  parent_id: null
+  bucket: B3
+  claimed_period_years: [3, 6]
+  period_dispersion_cv: null
+  tau_half_months: 15
+  phase_repr: state
+  mechanism: "Sector-level capex, margin and credit cycles run out of phase with each other and with the aggregate."
+  n_obs: {timeseries: 4, cross_sectional: 40, effective: 12.0}
+  evidence_tier: B
+  evidence_note: "Sector momentum and within-sector valuation reversion both have support; the combination is the sector model's core."
+  data_tier: D2
+  proxy_of: null
+  indicators:
+    - {code: sector_rel_strength, definition: "Sector index 6m and 12m relative strength vs Nifty 500", source_name: NSE, freq: D, history_start: 2005, pit_status: true, lag_days: 1}
+    - {code: sector_pe_zscore,    definition: "Sector PE z-score vs its OWN 10y history",               source_name: NSE, freq: M, history_start: 2005, pit_status: true, lag_days: 5}
+    - {code: sector_earn_growth,  definition: "Sector aggregate trailing 4q earnings growth",           source_name: "exchange filings", freq: Q, history_start: 2003, pit_status: lag_approx, lag_days: 60}
+  gain: {target: sector_tilt, k_pp_per_unit: 4.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [0, 0], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 4, name_l1_pp: 1, leverage_x: [0.00, 0.00]}
+    mod: {equity_pp: [0, 0], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 3, name_l1_pp: 1, leverage_x: [0.00, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.267, min_traverse_months: 30}
+  hysteresis: {enter_z: 0.7, exit_z: 0.3, min_dwell_months: 3, smooth_window_months: 3}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.35, retained_variance: 1.00}
+  owner_layer: L10
+  mvp: true
+  status: active
+
+# ------------------------------------------------------ B4 intermediate tactical
+- id: intermediate_momentum_12_1
+  name: "Cross-sectional momentum (12-1)"
+  family: momentum
+  parent_id: null
+  bucket: B4
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 6
+  phase_repr: state
+  mechanism: "Underreaction plus flow-driven continuation in the cross-section of returns."
+  n_obs: {timeseries: 30, cross_sectional: 1000, effective: 30.0}
+  evidence_tier: A
+  evidence_note: "Jegadeesh & Titman (1993); Asness, Moskowitz & Pedersen (2013); Blitz-Huij-Martens residual momentum; Barroso & Santa-Clara vol scaling; Daniel & Moskowitz on crashes."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: mom_12_1,        definition: "Cumulative return t-12m to t-1m, skip most recent month", source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+    - {code: mom_resid,       definition: "Residual momentum vs a 3-factor India model",             source_name: "bhavcopy + IIMA factors", freq: M, history_start: 1996, pit_status: true, lag_days: 5}
+    - {code: mom_vol_scaled,  definition: "12-1 momentum scaled to constant 6m realised volatility", source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+  gain: {target: name_score, k_pp_per_unit: 15.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [3, 3], gold_pp: [0, 0], debt_pp: [1, 1], sector_l1_pp: 4, name_l1_pp: 15, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [1, 1], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 2, name_l1_pp: 6,  leverage_x: [0.00, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 2.500, min_traverse_months: 12}
+  hysteresis: {enter_z: 0.5, exit_z: 0.2, min_dwell_months: 1, smooth_window_months: 1}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.2, retained_variance: 1.00}
+  owner_layer: L08
+  mvp: true
+  status: active
+
+- id: flows_positioning_cycle
+  name: "Flows and positioning cycle"
+  family: risk_appetite
+  parent_id: null
+  bucket: B4
+  claimed_period_years: [0.5, 1.5]
+  period_dispersion_cv: null
+  tau_half_months: 6
+  phase_repr: state
+  mechanism: "FPI, DII and retail flow waves plus positioning extremes; contrarian at the tails, confirming in the middle."
+  n_obs: {timeseries: 11, cross_sectional: 20, effective: 11.0}
+  evidence_tier: B
+  evidence_note: "Flow persistence is well documented; the contrarian-at-extremes crossover is the fragile part and is set conservatively."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: fpi_net_equity,  definition: "FPI net equity flow, 20d sum, / market cap",  source_name: NSDL,  freq: D, history_start: 2000, pit_status: true, lag_days: 1}
+    - {code: dii_net_equity,  definition: "DII net equity flow, 20d sum",                source_name: NSE,   freq: D, history_start: 2007, pit_status: true, lag_days: 1}
+    - {code: sip_book,        definition: "Monthly SIP inflow",                          source_name: AMFI,  freq: M, history_start: 2016, pit_status: true, lag_days: 10}
+    - {code: euphoria_score,  definition: "Composite 0-100 euphoria/capitulation score",  source_name: "derived", freq: D, history_start: 2005, pit_status: true, lag_days: 1}
+  gain: {target: equity_pct, k_pp_per_unit: 3.0, mapping_fn: logistic, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [3, 3], gold_pp: [0.5, 2], debt_pp: [2, 2], sector_l1_pp: 3, name_l1_pp: 5, leverage_x: [-0.05, 0.05]}
+    mod: {equity_pp: [1, 1], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 2, name_l1_pp: 2, leverage_x: [-0.05, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.500, min_traverse_months: 12}
+  hysteresis: {enter_z: 1.2, exit_z: 0.5, min_dwell_months: 1, smooth_window_months: 1}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.3, retained_variance: 1.00}
+  owner_layer: L07
+  mvp: true
+  status: active
+
+- id: volatility_regime_cycle
+  name: "Volatility regime"
+  family: risk
+  parent_id: null
+  bucket: B4
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 3
+  phase_repr: state
+  mechanism: "Volatility clusters; leverage and margin feedback amplify transitions."
+  n_obs: {timeseries: 15, cross_sectional: 30, effective: 25.0}
+  evidence_tier: A
+  evidence_note: "Volatility clustering is among the most robust facts in finance. Markov-switching IS identifiable here (>=10 transitions)."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: realised_vol_21d, definition: "21d realised volatility, Nifty 50",  source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+    - {code: india_vix,        definition: "India VIX",                          source_name: NSE,        freq: D, history_start: 2008, pit_status: true, lag_days: 1}
+    - {code: vix_term_slope,   definition: "Near vs next month implied vol slope", source_name: NSE,      freq: D, history_start: 2010, pit_status: true, lag_days: 1}
+  gain: {target: equity_pct, k_pp_per_unit: 2.0, mapping_fn: logistic, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [2, 2], gold_pp: [1, 2], debt_pp: [3, 3], sector_l1_pp: 3, name_l1_pp: 5, leverage_x: [-0.10, 0.05]}
+    mod: {equity_pp: [1, 1], gold_pp: [0.5, 1], debt_pp: [1, 1], sector_l1_pp: 1, name_l1_pp: 2, leverage_x: [-0.10, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 0.667, min_traverse_months: 6}
+  hysteresis: {enter_z: 1.0, exit_z: 0.4, min_dwell_months: 1, smooth_window_months: 1}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.25, retained_variance: 1.00}
+  owner_layer: L17
+  authority: risk_engine       # R7 — L18/L17 may cut without limit; not cycle-budgeted
+  mvp: true
+  status: active
+
+# ------------------------------------------------------------------- B5 fast
+- id: short_reversal_1m
+  name: "Short-horizon reversal (1 month)"
+  family: microstructure
+  parent_id: null
+  bucket: B5
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 1.0
+  phase_repr: state
+  mechanism: "Compensation for liquidity provision and overreaction at the 1-4 week horizon."
+  n_obs: {timeseries: 300, cross_sectional: 1000, effective: 300.0}
+  evidence_tier: A
+  evidence_note: "Jegadeesh (1990). OPPOSITE SIGN to 12-1 momentum — the two must be explicitly orthogonalised or they cancel."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: ret_21d,        definition: "Trailing 21-day return, cross-sectionally ranked", source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+    - {code: turnover_21d,   definition: "21d turnover / free float, for the liquidity interaction", source_name: "bhavcopy", freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+  gain: {target: name_score, k_pp_per_unit: 40.0, mapping_fn: linear, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [0, 0], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 2, name_l1_pp: 40, leverage_x: [0.00, 0.00]}
+    mod: {equity_pp: [0, 0], gold_pp: [0, 0], debt_pp: [0, 0], sector_l1_pp: 0, name_l1_pp: 0,  leverage_x: [0.00, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 13.333, min_traverse_months: 6}
+  hysteresis: {enter_z: 0.5, exit_z: 0.2, min_dwell_months: 0.25, smooth_window_months: 0.25}
+  one_sided: false
+  triggers: []
+  orthogonalization: {beta_prior: -0.30, shrinkage_lambda: 0.2, retained_variance: 0.85}
+  owner_layer: L08
+  mvp: true
+  status: active
+
+- id: funding_stress_spike
+  name: "Funding stress trigger"
+  family: risk
+  parent_id: null
+  bucket: B5
+  claimed_period_years: null
+  period_dispersion_cv: null
+  tau_half_months: 1.5
+  phase_repr: state
+  mechanism: "Margin spirals and dealer balance-sheet withdrawal; episodic, not periodic."
+  n_obs: {timeseries: 6, cross_sectional: 25, effective: 12.0}
+  evidence_tier: B
+  evidence_note: "~6 India episodes (2008, 2013, 2018 IL&FS, 2020, 2022). Designed as a TRIGGER, not a continuous signal."
+  data_tier: D1
+  proxy_of: null
+  indicators:
+    - {code: cp_tbill_spread, definition: "3m commercial paper minus 91d T-bill",  source_name: "CCIL + RBI", freq: D, history_start: 2005, pit_status: true, lag_days: 1}
+    - {code: usdinr_1m_vol,   definition: "1m realised USDINR volatility",          source_name: RBI,          freq: D, history_start: 1996, pit_status: true, lag_days: 1}
+    - {code: laf_net,         definition: "LAF net liquidity position",             source_name: RBI DBIE,     freq: D, history_start: 2004, pit_status: true, lag_days: 1}
+  gain: {target: equity_pct, k_pp_per_unit: 4.0, mapping_fn: logistic, peak_phase_rad: null}
+  influence:
+    agg: {equity_pp: [4, 0], gold_pp: [0, 2], debt_pp: [0, 3], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [-0.25, 0.00]}
+    mod: {equity_pp: [4, 0], gold_pp: [0, 2], debt_pp: [0, 3], sector_l1_pp: 2, name_l1_pp: 0, leverage_x: [-0.25, 0.00]}
+  rate_limit: {max_delta_pp_per_month: 1.333, min_traverse_months: 12}
+  hysteresis: {enter_z: 2.0, exit_z: 0.8, min_dwell_months: 1, smooth_window_months: 0.25}
+  one_sided: true                  # de-risk only, by design
+  triggers: []
+  orthogonalization: {beta_prior: null, shrinkage_lambda: 0.3, retained_variance: 1.00}
+  owner_layer: L17
+  authority: risk_engine       # R7 — L18/L17 may cut without limit; not cycle-budgeted
+  mvp: true
+  status: active
+
+# ============================================================================
+# DEFERRED — real cycles, not in the v1 build. Kept so they are not re-proposed
+# from scratch and so the DAG parents resolve.
+# ============================================================================
+- {id: reserve_currency_succession, name: "Reserve currency succession", family: debasement, parent_id: monetary_order_debasement, bucket: B0, tau_half_months: 180, phase_repr: ordinal, evidence_tier: C, data_tier: D1, one_sided: true, owner_layer: L02, mvp: false, status: deferred, cut_reason: null, mechanism: "Network externalities in invoicing, settlement and reserves.", n_obs: {timeseries: 2, cross_sectional: 2, effective: 2.0}}
+- {id: demographic_transition, name: "Demographic transition", family: structural_india, parent_id: india_development_arc, bucket: B0, tau_half_months: 240, phase_repr: state, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L02, mvp: false, status: deferred, cut_reason: null, mechanism: "Cohort mechanics; dependency ratio and savings rate. Phase near-deterministic 15y out; uncertainty is all in the mapping.", n_obs: {timeseries: 1, cross_sectional: 20, effective: 10.0}}
+- {id: commodity_supercycle, name: "Commodity supercycle", family: commodity, parent_id: null, bucket: B1, tau_half_months: 84, phase_repr: circular, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L06, mvp: false, status: deferred, cut_reason: null, mechanism: "Long extraction capex lead times against demand shocks from industrialising blocs.", n_obs: {timeseries: 4.5, cross_sectional: 0, effective: 4.5}}
+- {id: long_capex_swing, name: "Kuznets long capex swing", family: capex, parent_id: india_credit_financial_cycle, bucket: B1, tau_half_months: 84, phase_repr: state, evidence_tier: C, data_tier: D2, one_sided: true, owner_layer: L03, mvp: false, status: deferred, cut_reason: null, mechanism: "Infrastructure and building stock, migration, corporate capacity.", n_obs: {timeseries: 1.5, cross_sectional: 6, effective: 3.0}}
+- {id: household_financialisation, name: "Household financialisation", family: structural_india, parent_id: india_development_arc, bucket: B1, tau_half_months: 96, phase_repr: state, evidence_tier: C, data_tier: D2, one_sided: true, owner_layer: L02, mvp: false, status: deferred, cut_reason: null, mechanism: "Savings migrate physical to financial as income and formalisation rise.", n_obs: {timeseries: 1, cross_sectional: 12, effective: 4.0}}
+- {id: npa_provisioning_cycle, name: "NPA provisioning cycle", family: credit, parent_id: india_credit_financial_cycle, bucket: B2, tau_half_months: 48, phase_repr: state, evidence_tier: B, data_tier: D2, one_sided: false, owner_layer: L03, mvp: false, status: deferred, cut_reason: "aliased — the accounting echo of india_credit_financial_cycle, lagged 2-4y", mechanism: "Recognition and provisioning lag the underlying credit cycle.", n_obs: {timeseries: 2, cross_sectional: 17, effective: 9.0}}
+- {id: juglar_fixed_investment, name: "Juglar fixed investment cycle", family: capex, parent_id: india_business_cycle, bucket: B2, tau_half_months: 42, phase_repr: state, evidence_tier: C, data_tier: D2, one_sided: true, owner_layer: L03, mvp: false, status: deferred, cut_reason: "aliased with india_credit_financial_cycle and india_business_cycle", mechanism: "Machinery replacement and capacity addition in lumps.", n_obs: {timeseries: 2.5, cross_sectional: 15, effective: 6.0}}
+- {id: em_capital_flow_cycle, name: "EM capital flow cycle", family: global_liquidity, parent_id: global_liquidity_cycle, bucket: B2, tau_half_months: 42, phase_repr: state, evidence_tier: C, data_tier: D3, one_sided: true, owner_layer: L06, mvp: false, status: deferred, cut_reason: null, mechanism: "Risk-appetite waves, rating migration, index inclusion flows.", n_obs: {timeseries: 2, cross_sectional: 25, effective: 8.0}}
+- {id: election_policy_cycle, name: "Election and policy cycle", family: policy, parent_id: null, bucket: B3, tau_half_months: 18, phase_repr: calendar, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L04, mvp: false, status: deferred, cut_reason: null, mechanism: "Pre-election fiscal impulse and post-election reform window. R2: phase exact, effect weak.", n_obs: {timeseries: 7, cross_sectional: 40, effective: 7.0}}
+- {id: annual_seasonality, name: "Annual seasonality", family: calendar, parent_id: null, bucket: B4, tau_half_months: 6, phase_repr: calendar, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L08, mvp: false, status: deferred, cut_reason: null, mechanism: "Union Budget, fiscal year-end, monsoon and festive demand. High multiple-testing risk.", n_obs: {timeseries: 30, cross_sectional: 40, effective: 30.0}}
+- {id: crude_cycle_short, name: "Short crude cycle", family: commodity, parent_id: commodity_supercycle, bucket: B4, tau_half_months: 8, phase_repr: state, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L06, mvp: false, status: deferred, cut_reason: null, mechanism: "Inventory, OPEC policy and refining margins. India's dominant external variable.", n_obs: {timeseries: 12, cross_sectional: 0, effective: 12.0}}
+- {id: pead_1_3m, name: "Post-earnings announcement drift", family: earnings, parent_id: null, bucket: B5, tau_half_months: 2, phase_repr: state, evidence_tier: B, data_tier: D2, one_sided: false, owner_layer: L11, mvp: false, status: deferred, cut_reason: "needs a clean PIT surprise definition; without estimates, surprise must come from a seasonal random walk", mechanism: "Underreaction to earnings surprise.", n_obs: {timeseries: 60, cross_sectional: 1000, effective: 60.0}}
+
+# ============================================================================
+# CUT — recorded with reasons so they are not silently re-proposed.
+# ============================================================================
+- {id: real_estate_long_cycle_18y, name: "18-year land cycle", family: property, parent_id: null, bucket: B1, tau_half_months: 108, phase_repr: state, evidence_tier: C, data_tier: D5, one_sided: true, owner_layer: null, mvp: false, status: cut, cut_reason: "NHB Residex from 2007, RBI HPI from 2010 => ~1 observation. No free long series. NOT proxied: housing credit already enters india_credit_financial_cycle, so a separate 18y clock would be pure narrative with zero incremental data.", mechanism: "Land price and credit feedback (Harrison/Hoyt).", n_obs: {timeseries: 1, cross_sectional: 3, effective: 1.0}}
+- {id: earnings_revision_cycle, name: "Analyst earnings revision cycle", family: earnings, parent_id: null, bucket: B3, tau_half_months: 12, phase_repr: state, evidence_tier: C, data_tier: D5, one_sided: true, owner_layer: null, mvp: false, status: cut, cut_reason: "I/B/E/S-style estimate revisions are not free for India. R6 proxy: realised_eps_breadth from scraped exchange results, tier B->C, entirely backward-looking.", proxy_of: null, mechanism: "Analyst anchoring and revision drift.", n_obs: {timeseries: 0, cross_sectional: 0, effective: 0.0}}
+- {id: expiry_microstructure, name: "F&O expiry microstructure", family: microstructure, parent_id: null, bucket: B5, tau_half_months: 0.5, phase_repr: calendar, evidence_tier: B, data_tier: D1, one_sided: false, owner_layer: L15, mvp: false, status: cut, cut_reason: "wrong_layer — feasible and real, but has no business setting allocation. Moved to execution (L15).", mechanism: "Expiry positioning and roll dynamics.", n_obs: {timeseries: 300, cross_sectional: 0, effective: 300.0}}

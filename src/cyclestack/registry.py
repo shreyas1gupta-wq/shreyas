@@ -109,6 +109,22 @@ class Cycle:
         """
         return self.is_active and self.raw.get("authority", "cycle_budget") == "cycle_budget"
 
+    def rate_limit_pp_per_month(self, book: str) -> float:
+        """Per-book slew limit, derived rather than stored.
+
+        ``rate_limit.max_delta_pp_per_month`` is a single number per cycle, but
+        ``influence`` is per book and the moderate caps are 25-75% smaller. Applying the
+        stored value to both books leaves the limiter 2-4x too loose for the moderate
+        one — ``intermediate_momentum_12_1`` could traverse its entire moderate range
+        twice in a month, which is exactly what that book's turnover cap exists to
+        prevent. Scaling by the book's share of authority keeps the traverse time equal.
+        """
+        stored = float(self.raw.get("rate_limit", {}).get("max_delta_pp_per_month", 0.0))
+        ref = self.influence["aggressive"].allocation_l1
+        if ref <= 0:
+            return stored
+        return stored * (self.influence[book].allocation_l1 / ref)
+
     def annual_turnover_pp(self, book: str) -> float:
         """Expected one-way turnover this cycle generates, pp of NAV per year.
 
@@ -233,6 +249,22 @@ def _check_structure(reg: Registry) -> list[str]:
             out.append(f"{c.id}: status 'cut' requires cut_reason")
         if not c.mechanism:
             out.append(f"{c.id}: mechanism is required — a cycle with no causal story is numerology")
+        for book, inf in c.influence.items():
+            for target in TARGETS:
+                dn, up = getattr(inf, target)
+                if dn < 0 or up < 0:
+                    out.append(
+                        f"{c.id}/{book}: {target} bounds are magnitudes and must be >= 0, "
+                        f"got [{dn}, {up}]"
+                    )
+            lev_dn, lev_up = inf.leverage_x
+            if lev_dn > 0 or lev_up < 0:
+                out.append(
+                    f"{c.id}/{book}: leverage_x is SIGNED — [down, up] must satisfy "
+                    f"down <= 0 <= up, got [{lev_dn}, {lev_up}]. A reader applying the "
+                    f"*_pp magnitude convention here gets the sign backwards and turns "
+                    f"de-risking into gearing up."
+                )
     return out
 
 
@@ -348,7 +380,14 @@ def _check_three_sigma(reg: Registry) -> list[str]:
                 sum(getattr(c.influence[book], target)[idx] for c in reg.in_bucket(b))
                 for b in BUCKETS
             ]
-            sigma3 = 3.0 * math.sqrt(_UNIFORM_VAR * sum(b * b for b in per_bucket))
+            # Cap at the linear sum: with one dominant bucket the 3-sigma expression
+            # returns 1.72*b, which exceeds the hard bound that bucket alone can
+            # produce. Latent for asset classes (none is single-bucket) but it would
+            # misfire on name-level budgets, where B5 carries most of the total.
+            sigma3 = min(
+                sum(per_bucket),
+                3.0 * math.sqrt(_UNIFORM_VAR * sum(b * b for b in per_bucket)),
+            )
             room = headroom[(target, idx)]
             if sigma3 > room + 1e-9:
                 out.append(

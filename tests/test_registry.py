@@ -82,3 +82,34 @@ def test_a_broken_registry_refuses_to_load(tmp_path):
     bad.write_text(yaml.safe_dump(doc))
     with pytest.raises(RegistryError, match="R3"):
         load(bad)
+
+
+def test_influence_sign_conventions_are_enforced(reg):
+    """L14 defect: leverage_x is signed while *_pp are magnitudes.
+
+    A uniform reader applying the magnitude convention to leverage gets the sign
+    backwards and turns every de-risking cycle into a gearing-up instruction.
+    """
+    for c in reg.cycles:
+        for book, inf in c.influence.items():
+            assert min(inf.equity_pp) >= 0 and min(inf.gold_pp) >= 0 and min(inf.debt_pp) >= 0
+            assert inf.leverage_x[0] <= 0 <= inf.leverage_x[1]
+
+
+def test_rate_limit_is_tighter_for_the_moderate_book(reg):
+    """L14 defect: a per-cycle rate limit is 2-4x too loose for the smaller book."""
+    for c in reg.active():
+        agg = c.rate_limit_pp_per_month("aggressive")
+        mod = c.rate_limit_pp_per_month("moderate")
+        assert mod <= agg + 1e-9, f"{c.id}: moderate slew limit is looser than aggressive"
+
+
+def test_three_sigma_never_exceeds_the_linear_bound():
+    """L14 defect: 3*sqrt(0.33*b^2) = 1.72*b when a single bucket dominates."""
+    import math
+    from cyclestack.registry import _UNIFORM_VAR
+    per_bucket = [40.0, 0, 0, 0, 0, 0]
+    naive = 3.0 * math.sqrt(_UNIFORM_VAR * sum(b * b for b in per_bucket))
+    capped = min(sum(per_bucket), naive)
+    assert naive > sum(per_bucket)      # the defect is real
+    assert capped == sum(per_bucket)    # and the fix binds

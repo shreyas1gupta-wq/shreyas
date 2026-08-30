@@ -74,11 +74,23 @@ meta:
     in_progress_positions_max_pct: 20.0
     options_notional_directional_max_pct: 50.0
     options_notional_tail_max_pct: 75.0
-    # OPEN — see DECISIONS.md. The absolute form is a permanent forced underweight
-    # to financials (~30-35% of Nifty 500). Relative form recommended.
+    # OPEN — see DECISIONS.md. An absolute 25% cap is a permanent forced underweight to
+    # financials (~30-35% of the Nifty 500), not a concentration limit.
+    #
+    # CORRECTION: the relative form must be MAX, not MIN. min(25%, bench + 10pp) returns
+    # 25% for any sector above 15% benchmark weight — i.e. it reproduces the very forced
+    # underweight it was written to relieve. The correct semantics:
+    #     sector_cap = max(absolute_pct, benchmark_weight + relative_pp)
+    # which caps small sectors at 25% while allowing a bounded active overweight on a
+    # large one (financials at 32% benchmark -> 42% cap, a 10pp permitted overweight).
     sector_cap_mode: relative          # relative | absolute
+    sector_cap_formula: "max(sector_cap_absolute_pct, benchmark_weight_pct + sector_cap_relative_pp)"
     sector_cap_absolute_pct: {aggressive: 25.0, moderate: 20.0}
     sector_cap_relative_pp: {aggressive: 10.0, moderate: 8.0}
+    # Denominator is NAV, not the equity sleeve. At 60% equity a 25% NAV sector cap is a
+    # 42% sleeve weight; the two readings differ by the equity weight and must not be
+    # mixed. L14 depends on this resolution.
+    sector_cap_denominator: nav        # nav | equity_sleeve
 
 # ============================================================================
 # CYCLES
